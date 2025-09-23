@@ -18,7 +18,7 @@ export const fetchClassrooms = createAsyncThunk(
       });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response.data.message);
+      return rejectWithValue(error?.response?.data?.message || 'Request failed');
     }
   }
 );
@@ -32,7 +32,7 @@ export const createClassroom = createAsyncThunk(
       });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response.data.message);
+      return rejectWithValue(error?.response?.data?.message || 'Request failed');
     }
   }
 );
@@ -46,7 +46,7 @@ export const updateClassroom = createAsyncThunk(
       });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response.data.message);
+      return rejectWithValue(error?.response?.data?.message || 'Request failed');
     }
   }
 );

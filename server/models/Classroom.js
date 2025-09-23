@@ -6,6 +6,26 @@ const classroomSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  semester: {
+    type: String,
+    enum: ['Autumn', 'Spring'],
+    required: true
+  },
+  academicYear: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  program: {
+    type: String,
+    enum: ['B.Tech', 'M.Tech', 'M.Sc'],
+    required: true
+  },
+  branch: {
+    type: String,
+    required: true,
+    trim: true
+  },
   description: {
     type: String,
     trim: true
@@ -47,5 +67,6 @@ classroomSchema.pre('save', function(next) {
 // Index for better query performance
 classroomSchema.index({ teacher: 1 });
 classroomSchema.index({ students: 1 });
+classroomSchema.index({ program: 1, branch: 1, academicYear: 1 });
 
 module.exports = mongoose.model('Classroom', classroomSchema);

@@ -61,7 +61,7 @@ router.get('/', auth, async (req, res) => {
 // Create classroom (teacher only)
 router.post('/', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { name, description, subject } = req.body;
+    const { name, description, subject, semester, academicYear, program, branch } = req.body;
 
     // Enforce concise description on server
     const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
@@ -70,10 +70,30 @@ router.post('/', auth, authorize('teacher'), async (req, res) => {
       return res.status(400).json({ message: `Description too long. Max ${DESC_LIMIT} words.` });
     }
 
+    // Validate required new fields
+    const validSemesters = ['Autumn', 'Spring'];
+    const validPrograms = ['B.Tech', 'M.Tech', 'M.Sc'];
+    if (!validSemesters.includes(semester)) {
+      return res.status(400).json({ message: 'Invalid semester' });
+    }
+    if (!validPrograms.includes(program)) {
+      return res.status(400).json({ message: 'Invalid program' });
+    }
+    if (!academicYear || !/^[0-9]{4}-[0-9]{4}$/.test(academicYear)) {
+      return res.status(400).json({ message: 'Invalid academic year' });
+    }
+    if (!branch || typeof branch !== 'string' || !branch.trim()) {
+      return res.status(400).json({ message: 'Branch is required' });
+    }
+
     const classroom = new Classroom({
       name,
       description,
       subject,
+      semester,
+      academicYear,
+      program,
+      branch,
       teacher: req.user._id
     });
 
@@ -118,7 +138,7 @@ router.get('/:id', auth, async (req, res) => {
 // Update classroom (teacher only)
 router.put('/:id', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { name, description, subject } = req.body;
+    const { name, description, subject, semester, academicYear, program, branch } = req.body;
 
     const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
     const DESC_LIMIT = 60;
@@ -136,9 +156,36 @@ router.put('/:id', auth, authorize('teacher'), async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    classroom.name = name || classroom.name;
-    classroom.description = description || classroom.description;
-    classroom.subject = subject || classroom.subject;
+    // Optional updates with validation when provided
+    if (name !== undefined) classroom.name = name || classroom.name;
+    if (description !== undefined) classroom.description = description || classroom.description;
+    if (subject !== undefined) classroom.subject = subject || classroom.subject;
+    const validSemesters = ['Autumn', 'Spring'];
+    const validPrograms = ['B.Tech', 'M.Tech', 'M.Sc'];
+    if (semester !== undefined) {
+      if (!validSemesters.includes(semester)) {
+        return res.status(400).json({ message: 'Invalid semester' });
+      }
+      classroom.semester = semester;
+    }
+    if (academicYear !== undefined) {
+      if (!/^[0-9]{4}-[0-9]{4}$/.test(academicYear)) {
+        return res.status(400).json({ message: 'Invalid academic year' });
+      }
+      classroom.academicYear = academicYear;
+    }
+    if (program !== undefined) {
+      if (!validPrograms.includes(program)) {
+        return res.status(400).json({ message: 'Invalid program' });
+      }
+      classroom.program = program;
+    }
+    if (branch !== undefined) {
+      if (!branch || !branch.trim()) {
+        return res.status(400).json({ message: 'Invalid branch' });
+      }
+      classroom.branch = branch.trim();
+    }
 
     await classroom.save();
     await classroom.populate('teacher', 'name email');

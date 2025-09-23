@@ -1,24 +1,70 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { createClassroom } from '../../store/slices/classroomSlice';
+import axios from 'axios';
 import { X, BookOpen } from 'lucide-react';
 
 const CreateClassroomModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     subject: '',
+    semester: '',
+    academicYear: '',
+    program: '',
+    branch: '',
   });
   const WORD_LIMIT_DESC = 60;
   const [descCount, setDescCount] = useState(0);
+  const [branches, setBranches] = useState([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [error, setError] = useState('');
+
+  const calculateAcademicYear = useMemo(() => {
+    return () => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth() + 1; // 1-12
+      // Academic year typically starts in July/Aug (assume July = start)
+      // If month >= 7 (Jul-Dec): AY is year-year+1; else year-1-year
+      if (month >= 7) {
+        return `${year}-${year + 1}`;
+      } else {
+        return `${year - 1}-${year}`;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Set academic year on open
+    if (isOpen) {
+      setFormData(prev => ({ ...prev, academicYear: calculateAcademicYear() }));
+    }
+  }, [isOpen, calculateAcademicYear]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    dispatch(createClassroom(formData)).then(() => {
-      setFormData({ name: '', description: '', subject: '' });
-      onClose();
-    });
+    setError('');
+    // Basic validation
+    const required = ['name', 'semester', 'academicYear', 'program', 'branch'];
+    for (const key of required) {
+      if (!formData[key]) {
+        setError('Please fill all required fields.');
+        return;
+      }
+    }
+    dispatch(createClassroom(formData))
+      .unwrap()
+      .then(() => {
+        setFormData({ name: '', description: '', subject: '', semester: '', academicYear: calculateAcademicYear(), program: '', branch: '' });
+        setBranches([]);
+        onClose();
+      })
+      .catch(err => {
+        setError(typeof err === 'string' ? err : 'Failed to create classroom');
+      });
   };
 
   const handleChange = (e) => {
@@ -36,6 +82,26 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
       return;
     }
     setFormData(prev => ({ ...prev, [name]: value }));
+
+    // When program changes, fetch branches
+    if (name === 'program') {
+      setBranches([]);
+      setFormData(prev => ({ ...prev, branch: '' }));
+      if (value) {
+        setLoadingBranches(true);
+        const token = localStorage.getItem('token');
+        axios.get(`${API_URL}/programs/${encodeURIComponent(value)}/branches`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+        .then(res => {
+          setBranches(res.data.branches || []);
+        })
+        .catch(() => {
+          setBranches([]);
+        })
+        .finally(() => setLoadingBranches(false));
+      }
+    }
   };
 
   if (!isOpen) return null;
@@ -59,6 +125,9 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-2 text-sm rounded bg-red-50 text-red-700 border border-red-200">{error}</div>
+          )}
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
               Classroom Name *
@@ -73,6 +142,67 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
               placeholder="e.g., Mathematics Grade 10"
               required
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
+              <select
+                name="semester"
+                value={formData.semester}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="">Select Semester</option>
+                <option value="Autumn">Autumn</option>
+                <option value="Spring">Spring</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year *</label>
+              <input
+                type="text"
+                name="academicYear"
+                value={formData.academicYear}
+                readOnly
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Program *</label>
+              <select
+                name="program"
+                value={formData.program}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="">Select Program</option>
+                <option value="B.Tech">B.Tech</option>
+                <option value="M.Tech">M.Tech</option>
+                <option value="M.Sc">M.Sc</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Branch *</label>
+              <select
+                name="branch"
+                value={formData.branch}
+                onChange={handleChange}
+                disabled={!formData.program || loadingBranches}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+                required
+              >
+                <option value="">{loadingBranches ? 'Loading...' : 'Select Branch'}</option>
+                {branches.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
