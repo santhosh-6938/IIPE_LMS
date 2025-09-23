@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Import Template Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .instructions h3 {
+            color: #1976d2;
+            margin-top: 0;
+        }
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+            color: #333;
+        }
+        .download-btn {
+            background: #4caf50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            margin: 20px 0;
+        }
+        .download-btn:hover {
+            background: #45a049;
+        }
+        .sample-data {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Student Import Template Generator</h1>
+        
+        <div class="instructions">
+            <h3>📋 Instructions</h3>
+            <ul>
+                <li><strong>Required Columns:</strong> Name, Email, Roll Number</li>
+                <li><strong>File Format:</strong> Excel (.xlsx) or CSV</li>
+                <li><strong>Maximum File Size:</strong> 5MB</li>
+                <li><strong>Email Format:</strong> Must be valid email addresses</li>
+                <li><strong>New Students:</strong> Will be created with auto-generated passwords</li>
+                <li><strong>Existing Students:</strong> Will be added to the classroom</li>
+            </ul>
+        </div>
+
+        <div class="sample-data">
+            <strong>Sample Data Format:</strong><br>
+            Name,Email,Roll Number<br>
+            John Doe,john.doe@example.com,CS22B001<br>
+            Jane Smith,jane.smith@example.com,CS22B002<br>
+            Mike Johnson,mike.johnson@example.com,CS22B003
+        </div>
+
+        <button class="download-btn" onclick="downloadTemplate()">
+            📥 Download Excel Template
+        </button>
+
+        <p style="text-align: center; color: #666; font-size: 14px;">
+            After downloading, open the file in Excel, fill in your student data, and save as .xlsx format.
+        </p>
+    </div>
+
+    <script>
+        function downloadTemplate() {
+            // Create CSV content
+            const csvContent = `Name,Email,Roll Number
+John Doe,john.doe@example.com,CS22B001
+Jane Smith,jane.smith@example.com,CS22B002
+Mike Johnson,mike.johnson@example.com,CS22B003
+Sarah Wilson,sarah.wilson@example.com,CS22B004
+David Brown,david.brown@example.com,CS22B005
+Emily Davis,emily.davis@example.com,CS22B006
+Michael Garcia,michael.garcia@example.com,CS22B007
+Lisa Martinez,lisa.martinez@example.com,CS22B008
+Robert Anderson,robert.anderson@example.com,CS22B009
+Jennifer Taylor,jennifer.taylor@example.com,CS22B010`;
+
+            // Create blob and download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'student_import_template.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

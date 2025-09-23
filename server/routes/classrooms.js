@@ -1,0 +1,535 @@
+const express = require('express');
+const Classroom = require('../models/Classroom');
+const Attendance = require('../models/Attendance');
+const Notification = require('../models/Notification');
+const User = require('../models/User');
+const { auth, authorize } = require('../middleware/auth');
+const { sendNotificationEmail } = require('../services/emailService');
+const multer = require('multer');
+const XLSX = require('xlsx');
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const name = (file.originalname || '').toLowerCase();
+    const type = (file.mimetype || '').toLowerCase();
+    const isExcel = type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      type === 'application/vnd.ms-excel' ||
+      name.endsWith('.xlsx') ||
+      name.endsWith('.xls');
+    const isCsv = type === 'text/csv' || name.endsWith('.csv');
+    if (isExcel || isCsv) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .xlsx, .xls or .csv files are allowed'));
+    }
+  }
+});
+
+const router = express.Router();
+
+// Get classrooms (role-based)
+router.get('/', auth, async (req, res) => {
+  try {
+    let classrooms;
+
+    if (req.user.role === 'teacher') {
+      classrooms = await Classroom.find({ teacher: req.user._id })
+        .populate('teacher', 'name email')
+        .populate('students', 'name email rollNumber createdAt')
+        .sort({ createdAt: -1 });
+    } else {
+      classrooms = await Classroom.find({ students: req.user._id })
+        .populate('teacher', 'name email')
+        .populate('students', 'name email rollNumber createdAt')
+        .sort({ createdAt: -1 });
+    }
+
+    // Log activity
+    try { const { logActivity } = require('../middleware/activity'); await logActivity(req, 'classroom.list', 'classroom', '', { count: classrooms.length }); } catch {}
+    res.json(classrooms);
+  } catch (error) {
+    console.error('Get classrooms error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create classroom (teacher only)
+router.post('/', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const { name, description, subject } = req.body;
+
+    // Enforce concise description on server
+    const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
+    const DESC_LIMIT = 60;
+    if (countWords(description) > DESC_LIMIT) {
+      return res.status(400).json({ message: `Description too long. Max ${DESC_LIMIT} words.` });
+    }
+
+    const classroom = new Classroom({
+      name,
+      description,
+      subject,
+      teacher: req.user._id
+    });
+
+    await classroom.save();
+    
+    await classroom.populate('teacher', 'name email');
+
+    res.status(201).json(classroom);
+  } catch (error) {
+    console.error('Create classroom error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get single classroom
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const classroom = await Classroom.findById(req.params.id)
+      .populate('teacher', 'name email')
+      .populate('students', 'name email rollNumber createdAt');
+
+    if (!classroom) {
+      return res.status(404).json({ message: 'Classroom not found' });
+    }
+
+    // Check access permissions
+    const hasAccess = req.user.role === 'teacher' 
+      ? classroom.teacher._id.toString() === req.user._id.toString()
+      : classroom.students.some(student => student._id.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    res.json(classroom);
+  } catch (error) {
+    console.error('Get classroom error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update classroom (teacher only)
+router.put('/:id', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const { name, description, subject } = req.body;
+
+    const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
+    const DESC_LIMIT = 60;
+    if (description !== undefined && countWords(description) > DESC_LIMIT) {
+      return res.status(400).json({ message: `Description too long. Max ${DESC_LIMIT} words.` });
+    }
+
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ message: 'Classroom not found' });
+    }
+
+    // Check if teacher owns this classroom
+    if (classroom.teacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    classroom.name = name || classroom.name;
+    classroom.description = description || classroom.description;
+    classroom.subject = subject || classroom.subject;
+
+    await classroom.save();
+    await classroom.populate('teacher', 'name email');
+    await classroom.populate('students', 'name email rollNumber createdAt');
+
+    res.json(classroom);
+  } catch (error) {
+    console.error('Update classroom error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete classroom (teacher only)
+router.delete('/:id', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ message: 'Classroom not found' });
+    }
+
+    // Check if teacher owns this classroom
+    if (classroom.teacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    await Classroom.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Classroom deleted successfully' });
+  } catch (error) {
+    console.error('Delete classroom error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Join classroom functionality has been removed
+
+// Get all students (for teacher to add to classroom)
+router.get('/students/available', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const students = await User.find({ role: 'student' })
+      .select('name email rollNumber createdAt')
+      .sort({ name: 1 });
+
+    res.json(students);
+  } catch (error) {
+    console.error('Get available students error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Add students to classroom (teacher only)
+router.post('/:classroomId/students', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const { classroomId } = req.params;
+    const { studentIds } = req.body;
+
+    const classroom = await Classroom.findById(classroomId)
+      .populate('teacher', 'name email')
+      .populate('students', 'name email rollNumber createdAt');
+
+    if (!classroom) {
+      return res.status(404).json({ message: 'Classroom not found' });
+    }
+
+    // Check if teacher owns this classroom
+    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Get students to add
+    const studentsToAdd = await User.find({ 
+      _id: { $in: studentIds },
+      role: 'student'
+    });
+
+    // Add students who are not already in the classroom
+    const newStudents = [];
+    for (const student of studentsToAdd) {
+      const isAlreadyMember = classroom.students.some(
+        existingStudent => existingStudent._id.toString() === student._id.toString()
+      );
+      
+      if (!isAlreadyMember) {
+        classroom.students.push(student._id);
+        newStudents.push(student);
+      }
+    }
+
+    if (newStudents.length === 0) {
+      return res.status(400).json({ message: 'All selected students are already in the classroom' });
+    }
+
+    await classroom.save();
+    await classroom.populate('students', 'name email rollNumber createdAt');
+
+    // Create notifications for added students
+    for (const student of newStudents) {
+      try {
+        const notification = new Notification({
+          recipient: student._id,
+          sender: req.user._id,
+          type: 'classroom',
+          title: 'Added to Classroom',
+          message: `You have been added to the classroom "${classroom.name}" by ${req.user.name}`,
+          data: {
+            classroomId: classroom._id
+          }
+        });
+        await notification.save();
+        console.log(`Notification created for student ${student.email}`);
+
+        // Send email notification (optional - won't break if it fails)
+        try {
+          if (process.env.MAIL_USER && process.env.MAIL_PASS) {
+            await sendNotificationEmail(
+              student.email,
+              student.name,
+              notification
+            );
+            console.log(`Email sent to ${student.email}`);
+          } else {
+            console.log('Email service not configured, skipping email notification');
+          }
+        } catch (emailError) {
+          console.error('Failed to send email to student:', emailError);
+          // Don't fail the entire operation if email fails
+        }
+      } catch (notificationError) {
+        console.error('Failed to create notification for student:', notificationError);
+        // Don't fail the entire operation if notification creation fails
+      }
+    }
+
+    res.json({
+      classroom,
+      addedStudents: newStudents.length,
+      message: `Successfully added ${newStudents.length} student(s) to the classroom`
+    });
+  } catch (error) {
+    console.error('Add students to classroom error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Remove a single student from classroom (teacher only)
+router.delete('/:classroomId/students/:studentId', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const { classroomId, studentId } = req.params;
+
+    const classroom = await Classroom.findById(classroomId)
+      .populate('teacher', 'name email')
+      .populate('students', 'name email');
+
+    if (!classroom) {
+      return res.status(404).json({ message: 'Classroom not found' });
+    }
+
+    // Check if teacher owns this classroom
+    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const beforeCount = classroom.students.length;
+    classroom.students = classroom.students.filter(
+      s => s._id.toString() !== studentId
+    );
+
+    if (classroom.students.length === beforeCount) {
+      return res.status(404).json({ message: 'Student is not in this classroom' });
+    }
+
+    await classroom.save();
+    await classroom.populate('students', 'name email');
+
+    // Optional: clean up today's attendance record entry for this student
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+      const attendance = await Attendance.findOne({
+        classroom: classroomId,
+        date: { $gte: today, $lt: tomorrow }
+      });
+      if (attendance && !attendance.isFrozen) {
+        attendance.records = attendance.records.filter(
+          r => r.student.toString() !== studentId
+        );
+        attendance.totalStudents = classroom.students.length;
+        attendance.updateCounts();
+        await attendance.save();
+      }
+    } catch (attErr) {
+      console.error('Cleanup attendance after removal failed:', attErr);
+    }
+
+    return res.json({
+      message: 'Student removed from classroom',
+      classroom
+    });
+  } catch (error) {
+    console.error('Remove student from classroom error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Bulk import students from Excel/CSV file (teacher only)
+router.post('/:classroomId/students/bulk-import', auth, authorize('teacher'), (req, res) => {
+  // Wrap multer to capture errors and return JSON
+  upload.single('excelFile')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || 'Invalid file upload' });
+    }
+    try {
+      const { classroomId } = req.params;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: 'Please upload an Excel or CSV file' });
+      }
+
+      const classroom = await Classroom.findById(classroomId)
+        .populate('teacher', 'name email')
+        .populate('students', 'name email rollNumber');
+
+      if (!classroom) {
+        return res.status(404).json({ message: 'Classroom not found' });
+      }
+
+      // Check if teacher owns this classroom
+      if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      // Parse Excel/CSV file
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      if (data.length < 2) {
+        return res.status(400).json({ message: 'File must contain a header row and at least one data row' });
+      }
+
+      // Extract headers and data, normalize headers (lowercase, remove spaces/underscores)
+      const rawHeaders = data[0].map(header => header ? header.toString() : '');
+      const headers = rawHeaders.map(h => h.toLowerCase().trim().replace(/\s+/g, '').replace(/_/g, ''));
+      const rows = data.slice(1);
+
+      // Validate required columns with flexible header names
+      const findIndexFor = (candidates) => {
+        for (const c of candidates) {
+          const idx = headers.indexOf(c);
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      const nameIndex = findIndexFor(['name', 'fullname']);
+      const emailIndex = findIndexFor(['email', 'emailaddress']);
+      // Accept several variants for roll number: rollnumber, rollno, rollnumberwithspace, etc.
+      const rollNumberIndex = findIndexFor(['rollnumber', 'rollno', 'roll', 'rollnumberid']);
+
+      const missing = [];
+      if (nameIndex === -1) missing.push('name');
+      if (emailIndex === -1) missing.push('email');
+      if (rollNumberIndex === -1) missing.push('roll number');
+      
+      if (missing.length > 0) {
+        return res.status(400).json({ 
+          message: `Missing required columns: ${missing.join(', ')}. Required columns include: Name, Email, Roll Number (accepted headers: rollnumber | roll_number | roll no | roll number | rollno | rollNumber)` 
+        });
+      }
+
+      // Get column indices already computed above
+
+      const results = {
+        totalRows: rows.length,
+        processed: 0,
+        added: 0,
+        alreadyInClassroom: 0,
+        alreadyExists: 0,
+        errors: []
+      };
+
+      // Process each row
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2; // +2 because we start from row 2 (after header)
+
+        try {
+          const name = row[nameIndex] ? row[nameIndex].toString().trim() : '';
+          const email = row[emailIndex] ? row[emailIndex].toString().trim() : '';
+          const rollNumber = row[rollNumberIndex] ? row[rollNumberIndex].toString().trim().toUpperCase() : '';
+
+          // Validate data
+          if (!name || !email || !rollNumber) {
+            results.errors.push(`Row ${rowNumber}: Name, email, and roll number are required`);
+            continue;
+          }
+
+          if (!email.includes('@')) {
+            results.errors.push(`Row ${rowNumber}: Invalid email format`);
+            continue;
+          }
+
+          results.processed++;
+
+          // Check if student already exists in the system by email or roll number
+          let student = await User.findOne({ 
+            $or: [
+              { email: email.toLowerCase() },
+              { rollNumber: rollNumber }
+            ]
+          });
+          
+          if (!student) {
+            // Create new student account
+            student = new User({
+              name,
+              email: email.toLowerCase(),
+              rollNumber: rollNumber,
+              password: Math.random().toString(36).slice(-8), // Generate random password
+              role: 'student'
+            });
+            await student.save();
+            results.added++;
+          } else {
+            // Check if student is already in this classroom
+            const isAlreadyInClassroom = classroom.students.some(
+              existingStudent => existingStudent._id.toString() === student._id.toString()
+            );
+            
+            if (isAlreadyInClassroom) {
+              results.alreadyInClassroom++;
+              continue;
+            }
+            
+            results.alreadyExists++;
+          }
+
+          // Add student to classroom
+          classroom.students.push(student._id);
+
+          // Create notification for student
+          try {
+            const notification = new Notification({
+              recipient: student._id,
+              sender: req.user._id,
+              type: 'classroom',
+              title: 'Added to Classroom',
+              message: `You have been added to the classroom "${classroom.name}" by ${req.user.name}`,
+              data: {
+                classroomId: classroom._id
+              }
+            });
+            await notification.save();
+
+            // Send email notification (optional)
+            try {
+              if (process.env.MAIL_USER && process.env.MAIL_PASS) {
+                await sendNotificationEmail(
+                  student.email,
+                  student.name,
+                  notification
+                );
+              }
+            } catch (emailError) {
+              console.error('Failed to send email to student:', emailError);
+            }
+          } catch (notificationError) {
+            console.error('Failed to create notification for student:', notificationError);
+          }
+
+        } catch (error) {
+          results.errors.push(`Row ${rowNumber}: ${error.message}`);
+        }
+      }
+
+      // Save classroom with new students
+      await classroom.save();
+      await classroom.populate('students', 'name email');
+
+      return res.json({
+        classroom,
+        results,
+        message: `Bulk import completed. ${results.added} new students created, ${results.alreadyExists} existing students added, ${results.alreadyInClassroom} already in classroom.`
+      });
+
+    } catch (error) {
+      console.error('Bulk import students error:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+});
+
+module.exports = router;
