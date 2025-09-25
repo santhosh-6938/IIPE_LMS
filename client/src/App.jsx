@@ -10,7 +10,9 @@ import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import FirstLoginPasswordChange from './components/auth/FirstLoginPasswordChange';
 import TeacherDashboard from './components/teacher/TeacherDashboard';
+import TeacherProfile from './components/teacher/TeacherProfile';
 import StudentDashboard from './components/student/StudentDashboard';
+import StudentProfile from './components/student/StudentProfile';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClassroomDetail from './components/teacher/ClassroomDetail';
 import StudentClassroomDetail from './components/student/StudentClassroomDetail';
@@ -156,6 +158,18 @@ function App() {
             } 
           />
           <Route 
+            path="/teacher/profile" 
+            element={
+              shouldRedirectToPasswordChange ? (
+                <Navigate to="/first-login-password-change" />
+              ) : (
+                <PrivateRoute requiredRole="teacher">
+                  <TeacherProfile />
+                </PrivateRoute>
+              )
+            } 
+          />
+          <Route 
             path="/teacher/classroom/:classroomId" 
             element={
               shouldRedirectToPasswordChange ? (
@@ -246,6 +260,18 @@ function App() {
               ) : (
                 <PrivateRoute requiredRole="student">
                   <StudentDashboard />
+                </PrivateRoute>
+              )
+            } 
+          />
+          <Route 
+            path="/student/profile" 
+            element={
+              shouldRedirectToPasswordChange ? (
+                <Navigate to="/first-login-password-change" />
+              ) : (
+                <PrivateRoute requiredRole="student">
+                  <StudentProfile />
                 </PrivateRoute>
               )
             } 

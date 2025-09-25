@@ -20,6 +20,9 @@ router.get('/classroom/:classroomId', async (req, res) => {
     if (!classroom) {
       return res.status(404).json({ message: 'Classroom not found' });
     }
+  if (classroom.isArchived) {
+    return res.status(400).json({ message: 'Attendance is not available for archived classrooms' });
+  }
 
     // Only teacher of the classroom can access attendance
     if (classroom.teacher.toString() !== req.user._id.toString()) {
@@ -116,6 +119,9 @@ router.put('/classroom/:classroomId/student/:studentId', async (req, res) => {
     if (!classroom) {
       return res.status(404).json({ message: 'Classroom not found' });
     }
+  if (classroom.isArchived) {
+    return res.status(400).json({ message: 'Cannot update attendance for archived classrooms' });
+  }
 
     if (classroom.teacher.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
@@ -182,6 +188,7 @@ router.post('/classroom/:classroomId/freeze', async (req, res) => {
 
     const classroom = await Classroom.findById(classroomId);
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
+  if (classroom.isArchived) return res.status(400).json({ message: 'Cannot freeze attendance for archived classrooms' });
     if (classroom.teacher.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Access denied' });
 
     const targetDate = date ? new Date(date) : new Date();
@@ -217,6 +224,7 @@ router.post('/classroom/:classroomId/unfreeze', async (req, res) => {
 
     const classroom = await Classroom.findById(classroomId);
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
+  if (classroom.isArchived) return res.status(400).json({ message: 'Cannot unfreeze attendance for archived classrooms' });
     if (classroom.teacher.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Access denied' });
 
     const targetDate = date ? new Date(date) : new Date();

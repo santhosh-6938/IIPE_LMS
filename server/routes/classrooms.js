@@ -37,13 +37,19 @@ router.get('/', auth, async (req, res) => {
   try {
     let classrooms;
 
+    const includeArchived = req.query && (req.query.includeArchived === 'true');
+
     if (req.user.role === 'teacher') {
-      classrooms = await Classroom.find({ teacher: req.user._id })
+      const baseQuery = { teacher: req.user._id };
+      if (!includeArchived) baseQuery.isArchived = false;
+      classrooms = await Classroom.find(baseQuery)
         .populate('teacher', 'name email')
         .populate('students', 'name email rollNumber createdAt')
         .sort({ createdAt: -1 });
     } else {
-      classrooms = await Classroom.find({ students: req.user._id })
+      const baseQuery = { students: req.user._id };
+      if (!includeArchived) baseQuery.isArchived = false;
+      classrooms = await Classroom.find(baseQuery)
         .populate('teacher', 'name email')
         .populate('students', 'name email rollNumber createdAt')
         .sort({ createdAt: -1 });
@@ -61,7 +67,7 @@ router.get('/', auth, async (req, res) => {
 // Create classroom (teacher only)
 router.post('/', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { name, description, subject, semester, academicYear, program, branch } = req.body;
+    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth } = req.body;
 
     // Enforce concise description on server
     const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
@@ -94,6 +100,8 @@ router.post('/', auth, authorize('teacher'), async (req, res) => {
       academicYear,
       program,
       branch,
+      startMonth: startMonth || null,
+      endMonth: endMonth || null,
       teacher: req.user._id
     });
 
@@ -138,7 +146,7 @@ router.get('/:id', auth, async (req, res) => {
 // Update classroom (teacher only)
 router.put('/:id', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { name, description, subject, semester, academicYear, program, branch } = req.body;
+    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth } = req.body;
 
     const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
     const DESC_LIMIT = 60;
@@ -186,7 +194,19 @@ router.put('/:id', auth, authorize('teacher'), async (req, res) => {
       }
       classroom.branch = branch.trim();
     }
+    if (startMonth !== undefined) {
+      const m = Number(startMonth);
+      if (Number.isNaN(m) || m < 1 || m > 12) return res.status(400).json({ message: 'Invalid start month' });
+      classroom.startMonth = m;
+    }
+    if (endMonth !== undefined) {
+      const m = Number(endMonth);
+      if (Number.isNaN(m) || m < 1 || m > 12) return res.status(400).json({ message: 'Invalid end month' });
+      classroom.endMonth = m;
+    }
 
+    // Prevent edits if archived (except description/metadata, we can still allow basic edits)
+    // For safety, only metadata edits allowed already above. Proceed to save.
     await classroom.save();
     await classroom.populate('teacher', 'name email');
     await classroom.populate('students', 'name email rollNumber createdAt');
@@ -211,11 +231,65 @@ router.delete('/:id', auth, authorize('teacher'), async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    // If archived, allow deletion; otherwise, also allow. Consider soft delete later.
     await Classroom.findByIdAndDelete(req.params.id);
     res.json({ message: 'Classroom deleted successfully' });
   } catch (error) {
     console.error('Delete classroom error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Archive classroom (teacher only)
+router.post('/:id/archive', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const classroom = await Classroom.findById(id)
+      .populate('teacher', 'name email')
+      .populate('students', 'name email rollNumber createdAt');
+    if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
+    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    if (classroom.isArchived) {
+      return res.status(400).json({ message: 'Classroom already archived' });
+    }
+    classroom.isArchived = true;
+    classroom.archivedAt = new Date();
+    classroom.archivedBy = req.user._id;
+    if (typeof reason === 'string' && reason.trim()) classroom.archivedReason = reason.trim();
+    await classroom.save();
+    return res.json({ message: 'Classroom archived', classroom });
+  } catch (error) {
+    console.error('Archive classroom error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Unarchive classroom (teacher only)
+router.post('/:id/unarchive', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const classroom = await Classroom.findById(id)
+      .populate('teacher', 'name email')
+      .populate('students', 'name email rollNumber createdAt');
+    if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
+    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    if (!classroom.isArchived) {
+      return res.status(400).json({ message: 'Classroom is not archived' });
+    }
+    classroom.isArchived = false;
+    classroom.archivedAt = null;
+    classroom.archivedBy = null;
+    classroom.archivedReason = null;
+    await classroom.save();
+    return res.json({ message: 'Classroom unarchived', classroom });
+  } catch (error) {
+    console.error('Unarchive classroom error:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

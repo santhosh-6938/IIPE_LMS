@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { deleteClassroom } from '../../store/slices/classroomSlice';
+import { deleteClassroom, archiveClassroom, unarchiveClassroom } from '../../store/slices/classroomSlice';
 import { Users, Calendar, Settings, Trash2, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -18,6 +18,20 @@ const ClassroomCard = ({ classroom, tasksByClassroom = {} }) => {
   const handleDelete = () => {
     if (window.confirm('Are you sure you want to delete this classroom? This action cannot be undone.')) {
       dispatch(deleteClassroom(classroom._id));
+    }
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!classroom.isArchived) {
+      if (window.confirm('Archive this classroom? It will become read-only.')) {
+        await dispatch(archiveClassroom({ id: classroom._id })).unwrap().catch(() => {});
+        setShowActions(false);
+      }
+    } else {
+      if (window.confirm('Unarchive this classroom?')) {
+        await dispatch(unarchiveClassroom({ id: classroom._id })).unwrap().catch(() => {});
+        setShowActions(false);
+      }
     }
   };
 
@@ -42,6 +56,12 @@ const ClassroomCard = ({ classroom, tasksByClassroom = {} }) => {
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               >
                 Manage Classroom
+              </button>
+              <button
+                onClick={handleArchiveToggle}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                {classroom.isArchived ? 'Unarchive' : 'Archive'}
               </button>
 
               <button

@@ -34,6 +34,19 @@ const classroomSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // Month timeline for semester (1-12)
+  startMonth: {
+    type: Number,
+    min: 1,
+    max: 12,
+    default: null
+  },
+  endMonth: {
+    type: Number,
+    min: 1,
+    max: 12,
+    default: null
+  },
   teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -47,6 +60,25 @@ const classroomSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  // Archiving fields
+  isArchived: {
+    type: Boolean,
+    default: false
+  },
+  archivedAt: {
+    type: Date,
+    default: null
+  },
+  archivedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  archivedReason: {
+    type: String,
+    trim: true,
+    default: null
   },
   createdAt: {
     type: Date,

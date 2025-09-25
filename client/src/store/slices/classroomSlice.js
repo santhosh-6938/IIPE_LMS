@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
@@ -11,9 +11,10 @@ const getAuthHeaders = () => {
 // Async thunks
 export const fetchClassrooms = createAsyncThunk(
   'classroom/fetchClassrooms',
-  async (_, { rejectWithValue }) => {
+  async (options = {}, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_URL}/classrooms`, {
+      const includeArchived = options.includeArchived ? 'true' : 'false';
+      const response = await axios.get(`${API_URL}/classrooms?includeArchived=${includeArchived}`, {
         headers: getAuthHeaders()
       });
       return response.data;
@@ -45,6 +46,34 @@ export const updateClassroom = createAsyncThunk(
         headers: getAuthHeaders()
       });
       return response.data;
+    } catch (error) {
+      return rejectWithValue(error?.response?.data?.message || 'Request failed');
+    }
+  }
+);
+
+export const archiveClassroom = createAsyncThunk(
+  'classroom/archiveClassroom',
+  async ({ id, reason }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/classrooms/${id}/archive`, { reason }, {
+        headers: getAuthHeaders()
+      });
+      return response.data.classroom;
+    } catch (error) {
+      return rejectWithValue(error?.response?.data?.message || 'Request failed');
+    }
+  }
+);
+
+export const unarchiveClassroom = createAsyncThunk(
+  'classroom/unarchiveClassroom',
+  async ({ id }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/classrooms/${id}/unarchive`, {}, {
+        headers: getAuthHeaders()
+      });
+      return response.data.classroom;
     } catch (error) {
       return rejectWithValue(error?.response?.data?.message || 'Request failed');
     }
@@ -104,6 +133,14 @@ const classroomSlice = createSlice({
         if (index !== -1) {
           state.classrooms[index] = action.payload;
         }
+      })
+      .addCase(archiveClassroom.fulfilled, (state, action) => {
+        const index = state.classrooms.findIndex(c => c._id === action.payload._id);
+        if (index !== -1) state.classrooms[index] = action.payload;
+      })
+      .addCase(unarchiveClassroom.fulfilled, (state, action) => {
+        const index = state.classrooms.findIndex(c => c._id === action.payload._id);
+        if (index !== -1) state.classrooms[index] = action.payload;
       })
       .addCase(deleteClassroom.fulfilled, (state, action) => {
         state.classrooms = state.classrooms.filter(c => c._id !== action.payload);

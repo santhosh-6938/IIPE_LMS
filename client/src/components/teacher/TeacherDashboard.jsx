@@ -19,15 +19,17 @@ const TeacherDashboard = () => {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [tab, setTab] = useState('active'); // 'active' | 'archived'
 
   useEffect(() => {
-    dispatch(fetchClassrooms());
+    dispatch(fetchClassrooms({ includeArchived: tab === 'archived' }));
     dispatch(fetchTasks());
     dispatch(fetchTaskCount());
     dispatch(fetchNotifications());
-  }, [dispatch]);
+  }, [dispatch, tab]);
 
-  const totalStudents = classrooms.reduce((total, classroom) => total + (classroom.students?.length || 0), 0);
+  const visibleClassrooms = tab === 'archived' ? classrooms.filter(c => c.isArchived) : classrooms.filter(c => !c.isArchived);
+  const totalStudents = visibleClassrooms.reduce((total, classroom) => total + (classroom.students?.length || 0), 0);
   const totalTasks = taskCount;
 
   // Group tasks by classroom for per-class summaries and counts
@@ -85,7 +87,20 @@ const TeacherDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* No separate per-class breakdown strip */}
+        {/* Tabs for Active / Archived */}
+        <div className="mb-6 border-b">
+          <nav className="flex space-x-6">
+            {['active','archived'].map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`py-2 px-1 border-b-2 text-sm font-medium ${tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'}`}
+              >
+                {t === 'active' ? 'Active' : 'Archived'}
+              </button>
+            ))}
+          </nav>
+        </div>
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="card p-6 hover:shadow-lg transition-shadow">
@@ -96,9 +111,9 @@ const TeacherDashboard = () => {
               <div className="ml-4">
                 <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
                 <p className="text-gray-600">Total Students</p>
-                {classrooms.length > 0 && (
+                {visibleClassrooms.length > 0 && (
                   <div className="mt-3 space-y-1 max-h-28 overflow-y-auto pr-1">
-                    {classrooms.map(cls => (
+                    {visibleClassrooms.map(cls => (
                       <div key={cls._id} className="text-xs text-gray-600 flex items-center justify-between">
                         <span className="truncate mr-2">{cls.name}</span>
                         <span className="text-gray-900 font-medium">{cls.students?.length || 0}</span>
@@ -116,8 +131,8 @@ const TeacherDashboard = () => {
                 <BookOpen className="w-8 h-8 text-brandGreen" />
               </div>
               <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">{classrooms.length}</p>
-                <p className="text-gray-600">Active Classrooms</p>
+                <p className="text-2xl font-bold text-gray-900">{visibleClassrooms.length}</p>
+                <p className="text-gray-600">{tab === 'archived' ? 'Archived Classrooms' : 'Active Classrooms'}</p>
               </div>
             </div>
           </div>
@@ -153,21 +168,25 @@ const TeacherDashboard = () => {
                   </div>
                 ))}
               </div>
-            ) : classrooms.length === 0 ? (
+            ) : visibleClassrooms.length === 0 ? (
               <div className="bg-white rounded-xl shadow-sm p-12 text-center">
                 <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No classrooms yet</h3>
-                <p className="text-gray-600 mb-6">Create your first classroom to get started</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Create Classroom
-                </button>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{tab === 'archived' ? 'No archived classrooms' : 'No classrooms yet'}</h3>
+                {tab !== 'archived' && (
+                  <>
+                    <p className="text-gray-600 mb-6">Create your first classroom to get started</p>
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Create Classroom
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {classrooms.map((classroom) => (
+                {visibleClassrooms.map((classroom) => (
                   <ClassroomCard key={classroom._id} classroom={classroom} tasksByClassroom={tasksByClassroom} />
                 ))}
               </div>
@@ -181,7 +200,7 @@ const TeacherDashboard = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Task Summary</h2>
               </div>
               <div className="space-y-3">
-                {classrooms.map((cls) => {
+                {visibleClassrooms.map((cls) => {
                   const list = tasksByClassroom[cls._id] || [];
                   if (list.length === 0) return null;
                   return (

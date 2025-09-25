@@ -1,7 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const { logActivity } = require('../middleware/activity');
+const { sendPasswordResetEmail } = require('../services/emailService');
 
 // Register new user
 const register = async (req, res) => {
@@ -221,27 +223,137 @@ const changePasswordFirstLogin = async (req, res) => {
   }
 };
 
-// Reset password
-const resetPassword = async (req, res) => {
+// Forgot password - issue OTP and reset link
+const forgotPassword = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
+    const { email } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Valid email is required' });
     }
 
-    // Update user (let mongoose pre-save hook hash it)
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    // Always respond success to avoid user enumeration
+    if (!user) {
+      return res.json({ message: 'If the email exists, reset instructions were sent' });
+    }
+
+    // Generate 6-digit OTP and random token
+    const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const rawToken = crypto.randomBytes(32).toString('hex');
+
+    // Hash OTP for storage
+    const otpSalt = await bcrypt.genSalt(10);
+    const hashedOtp = await bcrypt.hash(otp, otpSalt);
+
+    // Optionally hash token for storage as well
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    // Set expiry (5 minutes)
+    const expires = new Date(Date.now() + 5 * 60 * 1000);
+
+    user.resetPasswordOTP = hashedOtp;
+    user.resetPasswordToken = tokenHash;
+    user.resetPasswordExpires = expires;
+    await user.save();
+
+    // Build reset link with token and iat
+    const clientBase = process.env.CLIENT_URL || process.env.APP_URL || 'http://localhost:5173';
+    const signed = jwt.sign({ uid: user._id.toString(), t: rawToken }, process.env.JWT_SECRET, { expiresIn: '5m' });
+    const resetLink = `${clientBase}/reset-password?token=${encodeURIComponent(signed)}`;
+
+    // Send email (best-effort)
+    try {
+      await sendPasswordResetEmail(user.email, user.name || 'User', otp, resetLink);
+    } catch (e) {
+      // Log and still return success to avoid leaking config
+      console.error('sendPasswordResetEmail error:', e);
+    }
+
+    return res.json({ message: 'If the email exists, reset instructions were sent' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Reset password (via signed token or email + OTP)
+const resetPassword = async (req, res) => {
+  try {
+    const { token, email, otp, newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    let user = null;
+
+    if (token) {
+      // Validate signed token
+      let decoded = null;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (e) {
+        return res.status(400).json({ message: 'Invalid or expired token' });
+      }
+      const { uid, t } = decoded || {};
+      if (!uid || !t) {
+        return res.status(400).json({ message: 'Invalid token payload' });
+      }
+      const tokenHash = crypto.createHash('sha256').update(t).digest('hex');
+      user = await User.findById(uid);
+      if (!user || !user.resetPasswordToken) {
+        return res.status(400).json({ message: 'Invalid reset request' });
+      }
+      if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+        return res.status(400).json({ message: 'Reset token expired' });
+      }
+      if (user.resetPasswordToken !== tokenHash) {
+        return res.status(400).json({ message: 'Invalid reset token' });
+      }
+    } else {
+      // Email + OTP flow
+      if (!email || !otp) {
+        return res.status(400).json({ message: 'Email and OTP are required' });
+      }
+      user = await User.findOne({ email: (email || '').toLowerCase().trim() });
+      if (!user || !user.resetPasswordOTP) {
+        return res.status(400).json({ message: 'Invalid reset request' });
+      }
+      if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+        return res.status(400).json({ message: 'OTP expired' });
+      }
+      const otpMatches = await bcrypt.compare(String(otp), user.resetPasswordOTP);
+      if (!otpMatches) {
+        return res.status(400).json({ message: 'Invalid OTP' });
+      }
+    }
+
+    // Enforce: new password must not match any of last 3 hashes
+    const historyToCheck = [...(user.passwordHistory || []), user.password].slice(-3);
+    for (const prevHash of historyToCheck) {
+      const sameAsPrev = await bcrypt.compare(newPassword, prevHash);
+      if (sameAsPrev) {
+        return res.status(400).json({ message: 'New password cannot be same as any of the last 3 passwords' });
+      }
+    }
+
+    // Push previous password into history and cap to last 3
+    const updatedHistory = [...(user.passwordHistory || []), user.password];
+    user.passwordHistory = updatedHistory.slice(-3);
+
+    // Update password and clear reset artifacts
     user.password = newPassword;
     user.updatedBy = user._id;
-    user.passwordChangeHistory.push({
-      changedAt: new Date(),
-      changedBy: user._id
-    });
+    user.passwordChangeHistory.push({ changedAt: new Date(), changedBy: user._id });
+    user.passwordChangeCount = (user.passwordChangeCount || 0) + 1;
+    user.resetPasswordOTP = null;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
 
     await user.save();
 
-    res.json({ message: 'Password reset successfully' });
+    return res.json({ message: 'Password reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -253,5 +365,6 @@ module.exports = {
   login,
   getMe,
   changePasswordFirstLogin,
+  forgotPassword,
   resetPassword
 };

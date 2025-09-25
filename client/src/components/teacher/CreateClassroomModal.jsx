@@ -15,6 +15,8 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
     academicYear: '',
     program: '',
     branch: '',
+    startMonth: '',
+    endMonth: '',
   });
   const WORD_LIMIT_DESC = 60;
   const [descCount, setDescCount] = useState(0);
@@ -48,7 +50,7 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     setError('');
     // Basic validation
-    const required = ['name', 'semester', 'academicYear', 'program', 'branch'];
+    const required = ['name', 'semester', 'academicYear', 'program', 'branch', 'startMonth', 'endMonth'];
     for (const key of required) {
       if (!formData[key]) {
         setError('Please fill all required fields.');
@@ -58,7 +60,7 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
     dispatch(createClassroom(formData))
       .unwrap()
       .then(() => {
-        setFormData({ name: '', description: '', subject: '', semester: '', academicYear: calculateAcademicYear(), program: '', branch: '' });
+        setFormData({ name: '', description: '', subject: '', semester: '', academicYear: calculateAcademicYear(), program: '', branch: '', startMonth: '', endMonth: '' });
         setBranches([]);
         onClose();
       })
@@ -168,6 +170,40 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
                 readOnly
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Start Month *</label>
+
+              <select
+                name="startMonth"
+                value={formData.startMonth}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="">Select Month</option>
+                {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, idx) => (
+                  <option key={m} value={idx+1}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">End Month *</label>
+              <select
+                name="endMonth"
+                value={formData.endMonth}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="">Select Month</option>
+                {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, idx) => (
+                  <option key={m} value={idx+1}>{m}</option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -310,6 +310,11 @@ router.post('/', auth, authorize('teacher'), upload.array('attachments', 5), asy
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    // Disallow creating tasks in archived classrooms
+    if (classroomDoc.isArchived) {
+      return res.status(400).json({ message: 'Cannot create tasks in archived classrooms' });
+    }
+
     // Create the task first
     const task = new Task({
       title,
@@ -482,6 +487,11 @@ router.post('/:id/submit', auth, authorize('student'), upload.array('files', 3),
     }
 
     // Check if student is in the classroom
+    // Prevent submissions for tasks in archived classrooms
+    if (task.classroom.isArchived) {
+      return res.status(400).json({ message: 'Cannot submit tasks in archived classrooms' });
+    }
+
     const isInClassroom = task.classroom.students.some(
       studentId => studentId.toString() === req.user._id.toString()
     );
@@ -668,6 +678,7 @@ router.delete('/:id/draft', auth, authorize('student'), async (req, res) => {
     const taskId = req.params.id;
     const task = await Task.findById(taskId).populate('classroom');
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (task.classroom.isArchived) return res.status(400).json({ message: 'Cannot discard drafts in archived classrooms' });
 
     // Ensure student belongs to classroom
     const isInClassroom = task.classroom.students.some(
@@ -718,6 +729,7 @@ router.get('/:taskId/submissions/:submissionId/files/:fileId/:action(preview|dow
     const { taskId, submissionId, fileId, action } = req.params;
     const task = await Task.findById(taskId).populate('classroom').populate('teacher', 'name');
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (task.classroom.isArchived) return res.status(403).json({ message: 'Access denied' });
 
     // Access control: teacher owner of classroom or student who owns the submission
     const teacherId = typeof task.teacher === 'object' && task.teacher !== null ? task.teacher._id : task.teacher;
@@ -799,6 +811,7 @@ router.get('/:taskId/attachments/:attachmentId/:action(preview|download)', auth,
     const { taskId, attachmentId, action } = req.params;
     const task = await Task.findById(taskId).populate('classroom');
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (task.classroom.isArchived) return res.status(403).json({ message: 'Access denied' });
 
     // Access control: teacher owner or student in classroom
     const isTeacher = req.user.role === 'teacher' && task.teacher.toString() === req.user._id.toString();
@@ -857,6 +870,7 @@ router.get('/file/:fileId/:action(preview|download)', auth, async (req, res) => 
 
     const task = await Task.findById(fileDoc.taskId).populate('teacher', 'name');
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (task.classroom.isArchived) return res.status(403).json({ message: 'Access denied' });
 
     const teacherId = typeof task.teacher === 'object' && task.teacher !== null ? task.teacher._id : task.teacher;
     const isTeacher = req.user.role === 'teacher' && teacherId && teacherId.toString() === req.user._id.toString();
@@ -885,6 +899,7 @@ router.delete('/:id', auth, authorize('teacher'), async (req, res) => {
   try {
     const task = await Task.findById(req.params.id).populate('classroom');
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (task.classroom.isArchived) return res.status(403).json({ message: 'Access denied' });
     if (task.classroom.teacher.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -983,6 +998,7 @@ router.post('/:taskId/submissions/:studentId/remarks', auth, authorize('teacher'
 
     const task = await Task.findById(taskId).populate('classroom');
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (task.classroom.isArchived) return res.status(403).json({ message: 'Access denied' });
     if (task.classroom.teacher.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }

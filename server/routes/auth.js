@@ -5,6 +5,7 @@ const {
   login,
   getMe,
   changePasswordFirstLogin,
+  forgotPassword,
   resetPassword
 } = require('../controllers/authController');
 
@@ -21,6 +22,9 @@ router.get('/me', auth, getMe);
 
 // Change password on first login
 router.post('/change-password-first-login', auth, changePasswordFirstLogin);
+
+// Forgot password
+router.post('/forgot', forgotPassword);
 
 // Reset password
 router.post('/reset', resetPassword);

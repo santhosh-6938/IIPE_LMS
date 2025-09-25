@@ -178,6 +178,24 @@ const Header = () => {
                       Student Codes
                     </button>
                   )}
+                  {user?.role === 'teacher' && (
+                    <button
+                      onClick={() => navigate('/teacher/profile')}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Profile
+                    </button>
+                  )}
+                  {user?.role === 'student' && (
+                    <button
+                      onClick={() => navigate('/student/profile')}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Profile
+                    </button>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
