@@ -7,7 +7,7 @@ import { fetchNotifications } from '../../store/slices/notificationSlice';
 import StudentClassroomCard from './StudentClassroomCard';
 import StudentTaskCard from './StudentTaskCard';
 import NotificationPanel from '../common/NotificationPanel';
-import { BookOpen, Clock, CheckCircle, Bell, Users } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle, Bell, Users, UserCircle } from 'lucide-react';
 import { isAfter, isBefore, addDays } from 'date-fns';
 
 const StudentDashboard = () => {
@@ -106,11 +106,31 @@ const StudentDashboard = () => {
       <header className="bg-gradient-to-r from-brandBlue via-brandNavy to-brandBlue text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Student Dashboard</h1>
-              <p className="text-white/90 mt-1">Welcome back, {user?.name}</p>
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                {user?.profilePhoto ? (
+                  <img 
+                    src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000'}/${user.profilePhoto}`} 
+                    alt="Profile" 
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                ) : (
+                  <UserCircle className="w-6 h-6 text-white" />
+                )}
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">Student Dashboard</h1>
+                <p className="text-white/90 mt-1">Welcome back, {user?.name}</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => navigate('/student/profile')}
+                className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/90 hover:text-white"
+              >
+                <UserCircle className="w-5 h-5" />
+                <span>Profile</span>
+              </button>
               <button className="relative p-2 text-white/90 hover:text-brandGold transition-colors">
                 <Bell className="w-6 h-6" />
                 {unreadCount > 0 && (

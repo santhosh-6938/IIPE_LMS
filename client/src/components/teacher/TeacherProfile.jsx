@@ -68,7 +68,7 @@ const TeacherProfile = () => {
 
 				<div className="mb-4 border-b">
 					<nav className="flex space-x-6">
-						{['overview','archived'].map(t => (
+						{['overview', 'archived'].map(t => (
 							<button key={t} onClick={() => setTab(t)} className={`py-2 px-1 border-b-2 text-sm font-medium ${tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'}`}>
 								{t === 'overview' ? 'Overview' : 'Archived'}
 							</button>
@@ -134,4 +134,5 @@ const TeacherProfile = () => {
 };
 
 export default TeacherProfile;
+
 

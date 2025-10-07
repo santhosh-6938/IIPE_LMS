@@ -10,8 +10,8 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-// Remove static uploads middleware - we'll serve files through API routes
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)

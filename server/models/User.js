@@ -43,6 +43,58 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Profile fields for students
+  phone: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  profilePhoto: {
+    type: String,
+    default: null
+  },
+  course: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  year: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  semester: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  department: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  dateOfBirth: {
+    type: Date,
+    default: null
+  },
+  address: {
+    city: {
+      type: String,
+      default: null,
+      trim: true
+    },
+    state: {
+      type: String,
+      default: null,
+      trim: true
+    }
+  },
+  bio: {
+    type: String,
+    default: null,
+    trim: true,
+    maxlength: 500
+  },
   // First login tracking
   isFirstLogin: {
     type: Boolean,

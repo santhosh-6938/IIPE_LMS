@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../store/slices/authSlice';
-import { LogOut, User, Settings, ChevronDown, Code, Sun, Moon } from 'lucide-react';
+import { LogOut, User, Settings, ChevronDown, Code, Sun, Moon, UserCircle } from 'lucide-react';
 
 const Header = () => {
   const dispatch = useDispatch();
@@ -86,12 +86,21 @@ const Header = () => {
                     Dashboard
                   </button>
                   {user?.role === 'student' && (
-                    <button
-                      onClick={() => navigate('/compiler/history')}
-                      className="text-gray-700 hover:text-blue-700 transition-all font-medium px-3 py-2 rounded-md hover:bg-blue-50"
-                    >
-                      My Codes
-                    </button>
+                    <>
+                      <button
+                        onClick={() => navigate('/student/profile')}
+                        className="text-gray-700 hover:text-blue-700 transition-all font-medium flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-blue-50"
+                      >
+                        <UserCircle className="w-4 h-4" />
+                        <span>Profile</span>
+                      </button>
+                      <button
+                        onClick={() => navigate('/compiler/history')}
+                        className="text-gray-700 hover:text-blue-700 transition-all font-medium px-3 py-2 rounded-md hover:bg-blue-50"
+                      >
+                        My Codes
+                      </button>
+                    </>
                   )}
                   {(user?.role === 'teacher' || user?.role === 'admin') && (
                     <button
@@ -161,12 +170,30 @@ const Header = () => {
                     Dashboard
                   </button>
                   {user?.role === 'student' && (
+                    <>
+                      <button
+                        onClick={() => navigate('/student/profile')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <UserCircle className="w-4 h-4 mr-2" />
+                        Profile
+                      </button>
+                      <button
+                        onClick={() => navigate('/compiler/history')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <Code className="w-4 h-4 mr-2" />
+                        My Codes
+                      </button>
+                    </>
+                  )}
+                  {user?.role === 'teacher' && (
                     <button
-                      onClick={() => navigate('/compiler/history')}
+                      onClick={() => navigate('/teacher/profile')}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
                     >
-                      <Code className="w-4 h-4 mr-2" />
-                      My Codes
+                      <UserCircle className="w-4 h-4 mr-2" />
+                      Profile
                     </button>
                   )}
                   {(user?.role === 'teacher' || user?.role === 'admin') && (
@@ -176,24 +203,6 @@ const Header = () => {
                     >
                       <Code className="w-4 h-4 mr-2" />
                       Student Codes
-                    </button>
-                  )}
-                  {user?.role === 'teacher' && (
-                    <button
-                      onClick={() => navigate('/teacher/profile')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Profile
-                    </button>
-                  )}
-                  {user?.role === 'student' && (
-                    <button
-                      onClick={() => navigate('/student/profile')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Profile
                     </button>
                   )}
                   <button
