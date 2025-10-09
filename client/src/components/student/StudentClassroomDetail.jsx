@@ -467,9 +467,18 @@ const StudentClassroomDetail = () => {
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{classroom.name}</h1>
-                <p className="text-gray-600">{classroom.description}</p>
+              <div className="flex items-center space-x-4">
+                {classroom.coverImage && (
+                  <img
+                    src={`${API_URL}/classrooms/cover-image/${classroom.coverImage}`}
+                    alt="Classroom cover"
+                    className="w-16 h-16 object-cover rounded-lg border"
+                  />
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{classroom.name}</h1>
+                  <p className="text-gray-600">{classroom.description}</p>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-2">

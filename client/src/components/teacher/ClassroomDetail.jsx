@@ -6,6 +6,7 @@ import CourseContentManager from './CourseContentManager';
 import StudentManager from './StudentManager';
 import TaskManager from './TaskManager';
 import AttendanceManager from './AttendanceManager';
+import ClassroomSettings from './ClassroomSettings';
 import { ArrowLeft, Users, FileText, Settings, BookOpen, Calendar, Clock, CheckSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import axios from 'axios';
@@ -226,12 +227,7 @@ const ClassroomDetail = () => {
       case 'attendance':
         return <AttendanceManager />;
       case 'settings':
-        return (
-          <div className="bg-white rounded-lg p-6 border">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Classroom Settings</h2>
-            <p className="text-gray-600">Settings functionality coming soon...</p>
-          </div>
-        );
+        return <ClassroomSettings classroom={classroom} onUpdate={handleClassroomUpdate} />;
       default:
         return null;
     }
@@ -250,9 +246,18 @@ const ClassroomDetail = () => {
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{classroom.name}</h1>
-                <p className="text-gray-600">{classroom.description}</p>
+              <div className="flex items-center space-x-4">
+                {classroom.coverImage && (
+                  <img
+                    src={`${API_URL}/classrooms/cover-image/${classroom.coverImage}`}
+                    alt="Classroom cover"
+                    className="w-8 h-8 object-cover rounded-lg border"
+                  />
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{classroom.name}</h1>
+                  <p className="text-gray-600">{classroom.description}</p>
+                </div>
               </div>
             </div>
 

@@ -34,6 +34,11 @@ const classroomSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  coverImage: {
+    type: String,
+    trim: true,
+    default: null
+  },
   // Month timeline for semester (1-12)
   startMonth: {
     type: Number,

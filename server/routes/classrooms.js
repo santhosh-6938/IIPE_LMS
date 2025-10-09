@@ -30,6 +30,33 @@ const upload = multer({
   }
 });
 
+// Configure multer for cover image uploads
+const uploadCoverImage = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, 'classroom-cover-' + uniqueSuffix + '-' + file.originalname);
+    }
+  }),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, GIF, WebP) are allowed for cover images'));
+    }
+  }
+});
+
 const router = express.Router();
 
 // Get classrooms (role-based)
@@ -146,7 +173,7 @@ router.get('/:id', auth, async (req, res) => {
 // Update classroom (teacher only)
 router.put('/:id', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth } = req.body;
+    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth, coverImage } = req.body;
 
     const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
     const DESC_LIMIT = 60;
@@ -168,6 +195,7 @@ router.put('/:id', auth, authorize('teacher'), async (req, res) => {
     if (name !== undefined) classroom.name = name || classroom.name;
     if (description !== undefined) classroom.description = description || classroom.description;
     if (subject !== undefined) classroom.subject = subject || classroom.subject;
+    if (coverImage !== undefined) classroom.coverImage = coverImage || classroom.coverImage;
     const validSemesters = ['Autumn', 'Spring'];
     const validPrograms = ['B.Tech', 'M.Tech', 'M.Sc'];
     if (semester !== undefined) {
@@ -651,6 +679,70 @@ router.post('/:classroomId/students/bulk-import', auth, authorize('teacher'), (r
       return res.status(500).json({ message: 'Server error' });
     }
   });
+});
+
+// Upload cover image for classroom (teacher only)
+router.post('/:id/cover-image', auth, authorize('teacher'), uploadCoverImage.single('coverImage'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'Please upload an image file' });
+    }
+
+    const classroom = await Classroom.findById(id);
+    if (!classroom) {
+      return res.status(404).json({ message: 'Classroom not found' });
+    }
+
+    // Check if teacher owns this classroom
+    if (classroom.teacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Update classroom with new cover image
+    classroom.coverImage = req.file.filename;
+    await classroom.save();
+
+    await classroom.populate('teacher', 'name email');
+    await classroom.populate('students', 'name email rollNumber createdAt');
+
+    res.json({
+      message: 'Cover image uploaded successfully',
+      classroom,
+      coverImageUrl: `/api/classrooms/cover-image/${req.file.filename}`
+    });
+  } catch (error) {
+    console.error('Upload cover image error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get cover image
+router.get('/cover-image/:filename', (req, res) => {
+  const { filename } = req.params;
+  const path = require('path');
+  const fs = require('fs');
+  
+  const filePath = path.join(__dirname, '../uploads', filename);
+  
+  // Check if file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ message: 'Image not found' });
+  }
+  
+  // Set appropriate content type
+  const ext = path.extname(filename).toLowerCase();
+  const contentType = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp'
+  }[ext] || 'image/jpeg';
+  
+  res.setHeader('Content-Type', contentType);
+  res.sendFile(filePath);
 });
 
 module.exports = router;
