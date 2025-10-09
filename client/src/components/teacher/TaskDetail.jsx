@@ -399,6 +399,24 @@ const TaskDetail = () => {
     }
   }, [dispatch, taskId, task]);
 
+  // Also poll private interactions for submitted students so the UI refreshes near real-time
+  useEffect(() => {
+    if (!task) return;
+    const submitted = (task.submissions || [])
+      .filter(s => s.status === 'submitted')
+      .map(s => (typeof s.student === 'object' ? s.student?._id : s.student))
+      .filter(Boolean);
+    if (submitted.length === 0) return;
+    const interval = setInterval(() => {
+      // Refresh a small sample to reduce load; rotate through students
+      const sample = submitted.slice(0, Math.min(3, submitted.length));
+      sample.forEach(studentId => {
+        dispatch(fetchInteractions({ taskId, studentId }));
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [dispatch, taskId, task]);
+
   const handleSendGroupChat = async () => {
     if (!groupChatInput.trim() && groupChatFiles.length === 0) return;
     if (!taskId) return;
@@ -768,7 +786,7 @@ const TaskDetail = () => {
                       <div className={`${ (m.sender?._id === user?._id) ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border' } rounded px-4 py-3 max-w-[75%]`}>
                         <div className="flex items-center space-x-2 mb-2">
                           <span className="text-sm font-medium">
-                            {m.sender?.name || 'Unknown'}
+                            {(m.senderRole === 'teacher' ? 'Teacher' : 'Student') + ' – ' + (m.sender?.name || '')}
                           </span>
                           <span className={`text-xs px-2 py-1 rounded ${m.senderRole === 'teacher' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
                             {m.senderRole === 'teacher' ? 'Teacher' : 'Student'}

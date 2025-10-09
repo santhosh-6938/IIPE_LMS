@@ -24,8 +24,10 @@ const GroupMessages = ({ task }) => {
 
   useEffect(() => {
     dispatch(fetchGroupInteractions({ taskId: task._id }));
-    // Remove polling to cut background computation; rely on manual refresh or send
-    return () => {};
+    const interval = setInterval(() => {
+      dispatch(fetchGroupInteractions({ taskId: task._id }));
+    }, 5000);
+    return () => clearInterval(interval);
   }, [dispatch, task._id]);
 
   const send = async () => {
@@ -60,9 +62,19 @@ const GroupMessages = ({ task }) => {
           <p className="text-sm text-gray-500">No messages yet.</p>
         ) : (
           messages.map((m, i) => (
-            <div key={i} className={`flex ${ (m.sender?.toString?.() === user?._id?.toString?.() || m.sender === user?._id) ? 'justify-end' : 'justify-start' }`}>
+            <div key={i} className={`flex ${ ((m.sender && (m.sender._id || m.sender))?.toString?.() === user?._id?.toString?.()) ? 'justify-end' : 'justify-start' }`}>
               <div className={`${ (m.senderRole === 'teacher') ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border' } rounded px-3 py-2 max-w-[75%]`}>
-                <p className="text-sm whitespace-pre-wrap">{m.message}</p>
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="text-xs font-medium">
+                    {(m.senderRole === 'teacher' ? 'Teacher' : 'Student') + ' – ' + (m.sender?.name || '')}
+                  </span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${m.senderRole === 'teacher' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                    {m.senderRole === 'teacher' ? 'Teacher' : 'Student'}
+                  </span>
+                </div>
+                {m.message && (
+                  <p className="text-sm whitespace-pre-wrap">{m.message}</p>
+                )}
                 <div className={`text-[10px] mt-1 ${ (m.senderRole === 'teacher') ? 'text-blue-100' : 'text-gray-400' }`}>
                   {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
                 </div>

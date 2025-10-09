@@ -158,20 +158,23 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Allow common document and image types
-    const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|rar)$/i;
+    // Allow common document, image, spreadsheet/presentation, archive and media types
+    const allowedExtensions = /\.(jpeg|jpg|png|gif|webp|pdf|doc|docx|ppt|pptx|xls|xlsx|csv|txt|zip|rar|mp3|mp4|wav)$/i;
     const allowedMimeTypes = [
-      'image/jpeg',
-      'image/jpg', 
-      'image/png',
-      'image/gif',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'application/zip',
-      'application/x-rar-compressed',
-      'application/octet-stream' // Fallback for some file types
+      // images
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      // docs
+      'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // sheets
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv',
+      // slides
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // archives
+      'application/zip', 'application/x-rar-compressed',
+      // audio/video
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'video/mp4',
+      // fallback
+      'application/octet-stream'
     ];
 
     const hasValidExtension = allowedExtensions.test(file.originalname);
@@ -1364,40 +1367,6 @@ router.post('/:taskId/interactions/reply', auth, authorize('teacher'), async (re
   }
 });
 
-// Group interactions: get messages (teacher or students who submitted)
-router.get('/:taskId/group-interactions', auth, async (req, res) => {
-  try {
-    const { taskId } = req.params;
-    const task = await Task.findById(taskId).populate('classroom');
-    if (!task) return res.status(404).json({ message: 'Task not found' });
-
-    if (req.user.role === 'teacher') {
-      const teacherId = typeof task.teacher === 'object' && task.teacher !== null ? task.teacher._id : task.teacher;
-      if (!teacherId || teacherId.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-    } else if (req.user.role === 'student') {
-      const isStudentInClass = task.classroom.students.some(s => s.toString() === req.user._id.toString());
-      if (!isStudentInClass) return res.status(403).json({ message: 'Access denied' });
-      // Must have submitted to view group chat
-      const mySubmission = (task.submissions || []).find(s => s.student.toString() === req.user._id.toString());
-      if (!mySubmission || mySubmission.status !== 'submitted') {
-        return res.status(403).json({ message: 'Group chat available after submission' });
-      }
-    } else {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const all = Array.isArray(task.groupInteractionMessages) ? task.groupInteractionMessages : [];
-    const MAX = 100;
-    const messages = all.length > MAX ? all.slice(all.length - MAX) : all;
-    return res.json({ taskId: task._id, messages });
-  } catch (error) {
-    console.error('Get group interactions error:', error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
 // Get group interaction messages for a task (teacher and submitted students only)
 router.get('/:taskId/group-interactions', auth, async (req, res) => {
   try {
@@ -1434,25 +1403,30 @@ router.get('/:taskId/group-interactions', auth, async (req, res) => {
       .filter(sub => sub.status === 'submitted')
       .map(sub => sub.student);
 
-    const messages = (task.groupInteractionMessages || []).map(msg => ({
+    const messages = (task.groupInteractionMessages || []).slice(-100).map(msg => ({
       _id: msg._id,
-      sender: {
+      sender: msg.sender && typeof msg.sender === 'object' ? {
         _id: msg.sender._id,
         name: msg.sender.name,
         role: msg.sender.role
+      } : {
+        _id: msg.sender,
+        name: undefined,
+        role: undefined
       },
       senderRole: msg.senderRole,
       message: msg.message,
+      attachments: msg.attachments || [],
       createdAt: msg.createdAt
     }));
 
     return res.json({
       taskId: task._id,
       taskTitle: task.title,
-      teacher: {
+      teacher: task.teacher ? {
         _id: task.teacher._id,
         name: task.teacher.name
-      },
+      } : null,
       submittedStudents: submittedStudents.length,
       messages: messages
     });
@@ -1508,6 +1482,8 @@ router.post('/:taskId/group-interactions', auth, upload.array('attachments', 5),
           mimetype: file.mimetype,
           size: file.size,
           uploadedBy: req.user._id,
+          taskId: task._id,
+          fileType: 'task_attachment',
           uploadedAt: new Date()
         });
         await fileDoc.save();
@@ -1607,13 +1583,29 @@ router.post('/:taskId/group-interactions', auth, upload.array('attachments', 5),
     console.error('Post group interaction error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
+}, (error, req, res, next) => {
+  // Handle multer/file upload errors explicitly for better feedback
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'File too large. Maximum file size is 10MB.' });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ message: 'Too many files. Maximum 5 files allowed.' });
+    }
+    return res.status(400).json({ message: 'File upload error: ' + error.message });
+  }
+  if (error && error.message && error.message.includes('Invalid file type')) {
+    return res.status(400).json({ message: 'Invalid file type. Please upload supported images, documents, spreadsheets, presentations, archives, or media files.' });
+  }
+  console.error('Group interactions upload error:', error);
+  return res.status(500).json({ message: 'Server error' });
 });
 
 // Get group interaction attachment file
 router.get('/:taskId/group-interactions/:messageId/attachments/:attachmentId/:action(preview|download)', auth, async (req, res) => {
   try {
     const { taskId, messageId, attachmentId, action } = req.params;
-    const task = await Task.findById(taskId);
+    const task = await Task.findById(taskId).populate('classroom');
     
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
