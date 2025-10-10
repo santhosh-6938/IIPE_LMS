@@ -32,6 +32,8 @@ app.use('/api/compiler', require('./routes/compiler'));
 app.use('/api/judge', require('./routes/judge'));
 app.use('/api/auto-submission', require('./routes/autoSubmission'));
 app.use('/api/profile', require('./routes/profile'));
+app.use('/api/email-templates', require('./routes/emailTemplates'));
+app.use('/api/user-blocking', require('./routes/userBlocking'));
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

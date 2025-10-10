@@ -95,6 +95,35 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // Check if user account is blocked
+    if (user.isBlocked) {
+      console.log('Login blocked: User account is blocked', { 
+        userId: user._id, 
+        email: user.email, 
+        role: user.role,
+        blockedAt: user.blockedAt,
+        blockedBy: user.blockedBy,
+        blockedReason: user.blockedReason
+      });
+      return res.status(403).json({ 
+        message: 'Your account has been blocked. Please contact admin.',
+        code: 'ACCOUNT_BLOCKED'
+      });
+    }
+
+    // Check if user account is active
+    if (!user.isActive) {
+      console.log('Login blocked: User account is inactive', { 
+        userId: user._id, 
+        email: user.email, 
+        role: user.role
+      });
+      return res.status(403).json({ 
+        message: 'Your account is inactive. Please contact admin.',
+        code: 'ACCOUNT_INACTIVE'
+      });
+    }
+
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     console.log('Login password comparison:', {

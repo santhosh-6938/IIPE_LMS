@@ -35,6 +35,35 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'Token is not valid' });
     }
 
+    // Check if user account is blocked
+    if (user.isBlocked) {
+      console.log('Auth failed: User account is blocked', { 
+        userId: user._id, 
+        email: user.email, 
+        role: user.role,
+        blockedAt: user.blockedAt,
+        blockedBy: user.blockedBy,
+        blockedReason: user.blockedReason
+      });
+      return res.status(403).json({ 
+        message: 'Your account has been blocked. Please contact admin.',
+        code: 'ACCOUNT_BLOCKED'
+      });
+    }
+
+    // Check if user account is active
+    if (!user.isActive) {
+      console.log('Auth failed: User account is inactive', { 
+        userId: user._id, 
+        email: user.email, 
+        role: user.role
+      });
+      return res.status(403).json({ 
+        message: 'Your account is inactive. Please contact admin.',
+        code: 'ACCOUNT_INACTIVE'
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {
@@ -48,14 +77,17 @@ const auth = async (req, res, next) => {
   }
 };
 
-// Role-based authorization middleware
-const authorize = (...roles) => {
+// Role-based authorization middleware (accepts string, array, or varargs)
+const authorize = (...rolesInput) => {
+  // Normalize roles: support authorize('admin'), authorize('admin','teacher'), authorize(['admin']), authorize(['admin','teacher'])
+  const normalizedRoles = Array.isArray(rolesInput[0]) ? rolesInput[0] : rolesInput;
+
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Access denied' });
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!normalizedRoles.includes(req.user.role)) {
       return res.status(403).json({ message: 'Access forbidden: insufficient permissions' });
     }
 

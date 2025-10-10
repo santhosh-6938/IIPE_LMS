@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsers, updateUser, deleteUser, fetchUserById, createTeacher } from '../../store/slices/adminSlice';
+import { fetchUsers, updateUser, deleteUser, fetchUserById, createTeacher, blockUser, unblockUser } from '../../store/slices/adminSlice';
 import { toast } from 'react-toastify';
+import { Shield, ShieldOff, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 
 const UserManagement = () => {
   const dispatch = useDispatch();
@@ -16,10 +17,23 @@ const UserManagement = () => {
   const [newTeacher, setNewTeacher] = useState({ name: '', email: '', password: '' });
   const [userToDelete, setUserToDelete] = useState(null);
   const [emailConfigured, setEmailConfigured] = useState(true);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showUnblockModal, setShowUnblockModal] = useState(false);
+  const [userToBlock, setUserToBlock] = useState(null);
+  const [userToUnblock, setUserToUnblock] = useState(null);
+  const [blockReason, setBlockReason] = useState('');
+  const [openMenuUserId, setOpenMenuUserId] = useState(null);
 
   useEffect(() => {
     loadUsers();
   }, [currentPage, searchTerm, roleFilter]);
+
+  // Close any open actions menu on outside click
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuUserId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     // Check email config once
@@ -94,6 +108,48 @@ const UserManagement = () => {
   const openDeleteModal = (user) => {
     setUserToDelete(user);
     setShowDeleteModal(true);
+  };
+
+  const openBlockModal = (user) => {
+    setUserToBlock(user);
+    setShowBlockModal(true);
+  };
+
+  const openUnblockModal = (user) => {
+    setUserToUnblock(user);
+    setShowUnblockModal(true);
+  };
+
+  const handleBlockUser = async () => {
+    if (!userToBlock || !blockReason.trim()) {
+      toast.error('Please provide a reason for blocking');
+      return;
+    }
+
+    try {
+      await dispatch(blockUser({ userId: userToBlock._id, reason: blockReason })).unwrap();
+      toast.success('User blocked successfully');
+      setShowBlockModal(false);
+      setUserToBlock(null);
+      setBlockReason('');
+      loadUsers();
+    } catch (error) {
+      toast.error(error || 'Failed to block user');
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!userToUnblock) return;
+
+    try {
+      await dispatch(unblockUser(userToUnblock._id)).unwrap();
+      toast.success('User unblocked successfully');
+      setShowUnblockModal(false);
+      setUserToUnblock(null);
+      loadUsers();
+    } catch (error) {
+      toast.error(error || 'Failed to unblock user');
+    }
   };
 
   const getRoleBadgeColor = (role) => {
@@ -186,7 +242,7 @@ const UserManagement = () => {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      <div className="bg-white shadow sm:rounded-md overflow-visible">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -198,6 +254,9 @@ const UserManagement = () => {
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Roll Number
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Created
@@ -233,24 +292,76 @@ const UserManagement = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {user.rollNumber || '-'}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {user.isBlocked ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Blocked
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Active
+                    </span>
+                  )}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
+                  <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => openEditModal(user)}
-                      className="text-blue-600 hover:text-blue-900"
+                      type="button"
+                      onClick={() => setOpenMenuUserId(openMenuUserId === user._id ? null : user._id)}
+                      className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
-                      Edit
+                      Actions
+                      <svg className="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.939l3.71-3.71a.75.75 0 111.06 1.061l-4.24 4.24a.75.75 0 01-1.06 0l-4.24-4.24a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                      </svg>
                     </button>
-                    {user.role !== 'admin' && (
-                      <button
-                        onClick={() => openDeleteModal(user)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
+
+                    {openMenuUserId === user._id && (
+                      <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md border border-gray-200 bg-white shadow-xl focus:outline-none z-50">
+                        <div className="py-1">
+                          <button
+                            onClick={() => { setOpenMenuUserId(null); openEditModal(user); }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                          >
+                            <Pencil className="h-4 w-4 text-gray-500" />
+                            <span>Edit</span>
+                          </button>
+
+                          {user.role !== 'admin' && (
+                            <>
+                              {user.isBlocked ? (
+                                <button
+                                  onClick={() => { setOpenMenuUserId(null); openUnblockModal(user); }}
+                                  className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
+                                >
+                                  <Shield className="h-4 w-4" />
+                                  <span>Unblock</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => { setOpenMenuUserId(null); openBlockModal(user); }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
+                                >
+                                  <ShieldOff className="h-4 w-4" />
+                                  <span>Block</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => { setOpenMenuUserId(null); openDeleteModal(user); }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span>Delete</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </td>
@@ -288,6 +399,102 @@ const UserManagement = () => {
       {/* Modals */}
       {showEditModal && <EditUserModal />}
       {showDeleteModal && <DeleteUserModal />}
+      
+      {/* Block User Modal */}
+      {showBlockModal && userToBlock && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
+                <ShieldOff className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="mt-2 text-center">
+                <h3 className="text-lg font-medium text-gray-900">Block User</h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to block <strong>{userToBlock.name}</strong> ({userToBlock.email})?
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    They will lose access to the platform until unblocked.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reason for blocking:
+                </label>
+                <textarea
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  placeholder="e.g., Teacher left the institution"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  rows="3"
+                  required
+                />
+              </div>
+              <div className="mt-4 flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowBlockModal(false);
+                    setUserToBlock(null);
+                    setBlockReason('');
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBlockUser}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+                >
+                  Block User
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unblock User Modal */}
+      {showUnblockModal && userToUnblock && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 rounded-full">
+                <Shield className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="mt-2 text-center">
+                <h3 className="text-lg font-medium text-gray-900">Unblock User</h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to unblock <strong>{userToUnblock.name}</strong> ({userToUnblock.email})?
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    They will regain access to the platform.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowUnblockModal(false);
+                    setUserToUnblock(null);
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUnblockUser}
+                  className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                >
+                  Unblock User
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {showCreateTeacher && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">

@@ -105,6 +105,26 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Account blocking status
+  isBlocked: {
+    type: Boolean,
+    default: false
+  },
+  // Blocking details
+  blockedAt: {
+    type: Date,
+    default: null
+  },
+  blockedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  blockedReason: {
+    type: String,
+    default: null,
+    trim: true
+  },
   // Audit fields
   createdAt: {
     type: Date,
@@ -176,5 +196,7 @@ userSchema.pre('save', function(next) {
 userSchema.index({ rollNumber: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ isBlocked: 1 });
+userSchema.index({ isActive: 1, isBlocked: 1 });
 
 module.exports = mongoose.model('User', userSchema);

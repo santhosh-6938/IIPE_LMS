@@ -12,7 +12,7 @@ const Login = () => {
   const joinToken = searchParams.get('joinToken');
   const forceLogout = searchParams.get('forceLogout');
 
-  const { isLoading, error, isAuthenticated, user } = useSelector(state => state.auth);
+  const { isLoading, error, isAuthenticated, user, blocked } = useSelector(state => state.auth);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -39,7 +39,8 @@ const Login = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
-    if (error) dispatch(clearError());
+    // Do not auto-clear blocked error while typing; keep it visible
+    if (error && !blocked) dispatch(clearError());
   };
 
   const handleSubmit = (e) => {
@@ -111,6 +112,15 @@ const Login = () => {
             <p className="text-gray-600 mt-2">Sign in to your account</p>
 
           </div>
+
+          {/* Blocked account banner */}
+          {blocked && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+              <p className="text-sm text-yellow-900 font-medium">
+                {error || 'Your account has been blocked. Please contact admin.'}
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Login Method Toggle */}
@@ -199,8 +209,8 @@ const Login = () => {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-800">{error}</p>
+              <div className={`p-3 border rounded-lg ${blocked ? 'bg-yellow-50 border-yellow-300' : 'bg-red-50 border-red-200'}`}>
+                <p className={`text-sm ${blocked ? 'text-yellow-900' : 'text-red-800'}`}>{error}</p>
               </div>
             )}
 

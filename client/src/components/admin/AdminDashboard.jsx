@@ -4,6 +4,7 @@ import { fetchStatistics, fetchUsers, fetchClassrooms, fetchTasks } from '../../
 import { clearError, clearSuccessMessage } from '../../store/slices/adminSlice';
 import { toast } from 'react-toastify';
 import UserManagement from './UserManagement';
+import BlockedUsersManager from './BlockedUsersManager';
 import SystemMonitoring from './SystemMonitoring';
 import TeacherActivity from './TeacherActivity';
 import AdminAttendanceManager from './AdminAttendanceManager';
@@ -36,6 +37,7 @@ const AdminDashboard = () => {
   const tabs = [
     { id: 'overview', name: 'Overview', icon: '📊' },
     { id: 'users', name: 'User Management', icon: '👥' },
+    { id: 'blocked-users', name: 'Blocked Users', icon: '🚫' },
     { id: 'monitoring', name: 'System Monitoring', icon: '🔍' },
     { id: 'activity', name: 'Teacher Activity', icon: '📈' },
     { id: 'attendance', name: 'Attendance Management', icon: '📋' },
@@ -105,6 +107,20 @@ const AdminDashboard = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Course Content</p>
                 <p className="text-2xl font-semibold text-gray-900">{statistics.statistics.content.courseContent}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-red-100 text-red-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Blocked Users</p>
+                <p className="text-2xl font-semibold text-gray-900">{statistics.statistics.users.blocked || 0}</p>
               </div>
             </div>
           </div>
@@ -179,6 +195,8 @@ const AdminDashboard = () => {
         return renderOverview();
       case 'users':
         return <UserManagement />;
+      case 'blocked-users':
+        return <BlockedUsersManager />;
       case 'monitoring':
         return <SystemMonitoring />;
       case 'activity':

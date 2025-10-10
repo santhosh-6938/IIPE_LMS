@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { renderEmailTemplate } = require('./emailTemplateService');
 
 // Check if email service is configured
 const isEmailConfigured = () => {
@@ -63,22 +64,18 @@ const sendNotificationEmail = async (userEmail, userName, notification) => {
     return { success: false, error: 'Email service not configured' };
   }
 
-  const subject = `New Notification: ${notification.title}`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Hello ${userName},</h2>
-      <p>You have received a new notification:</p>
-      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: #007bff; margin-top: 0;">${notification.title}</h3>
-        <p style="color: #666; margin-bottom: 0;">${notification.message}</p>
-      </div>
-      <p style="color: #999; font-size: 14px;">
-        This is an automated notification from your education platform.
-      </p>
-    </div>
-  `;
+  try {
+    const template = await renderEmailTemplate('notification', {
+      userName,
+      title: notification.title,
+      message: notification.message
+    });
 
-  return await sendEmail(userEmail, subject, html);
+    return await sendEmail(userEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending notification email:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Send task assignment email
@@ -88,23 +85,19 @@ const sendTaskAssignmentEmail = async (studentEmail, studentName, taskTitle, cla
     return { success: false, error: 'Email service not configured' };
   }
 
-  const subject = `New Task Assigned: ${taskTitle}`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Hello ${studentName},</h2>
-      <p>A new task has been assigned to you:</p>
-      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: #28a745; margin-top: 0;">${taskTitle}</h3>
-        <p><strong>Classroom:</strong> ${classroomName}</p>
-        <p><strong>Assigned by:</strong> ${teacherName}</p>
-      </div>
-      <p style="color: #999; font-size: 14px;">
-        Please log in to your account to view the complete task details and submit your work.
-      </p>
-    </div>
-  `;
+  try {
+    const template = await renderEmailTemplate('task_assignment', {
+      studentName,
+      taskTitle,
+      classroomName,
+      teacherName
+    });
 
-  return await sendEmail(studentEmail, subject, html);
+    return await sendEmail(studentEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending task assignment email:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Send task submission notification email
@@ -114,23 +107,24 @@ const sendTaskSubmissionEmail = async (teacherEmail, teacherName, studentName, t
     return { success: false, error: 'Email service not configured' };
   }
 
-  const subject = isAutoSubmission ? `Auto-Submission Completed: ${taskTitle}` : `Task Submitted: ${taskTitle}`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Hello ${teacherName},</h2>
-      <p>${isAutoSubmission ? 'The system has automatically submitted draft submissions for a task:' : 'A student has submitted a task:'}</p>
-      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: ${isAutoSubmission ? '#dc3545' : '#ffc107'}; margin-top: 0;">${taskTitle}</h3>
-        <p><strong>${isAutoSubmission ? 'Auto-submitted by:' : 'Submitted by:'}</strong> ${studentName}</p>
-        ${isAutoSubmission ? '<p style="color: #dc3545; font-weight: bold;">⚠️ This submission was automatically submitted due to the deadline passing.</p>' : ''}
-      </div>
-      <p style="color: #999; font-size: 14px;">
-        Please log in to your account to review the submission${isAutoSubmission ? 's' : ''} and provide feedback.
-      </p>
-    </div>
-  `;
+  try {
+    const template = await renderEmailTemplate('task_submission', {
+      teacherName,
+      studentName,
+      taskTitle,
+      isAutoSubmission: isAutoSubmission ? 'Auto-' : '',
+      isAutoSubmissionText: isAutoSubmission ? 'The system has automatically submitted draft submissions for a task:' : 'A student has submitted a task:',
+      isAutoSubmissionColor: isAutoSubmission ? '#dc3545' : '#ffc107',
+      isAutoSubmissionLabel: isAutoSubmission ? 'Auto-submitted by:' : 'Submitted by:',
+      isAutoSubmissionWarning: isAutoSubmission ? '<p style="color: #dc3545; font-weight: bold;">⚠️ This submission was automatically submitted due to the deadline passing.</p>' : '',
+      isAutoSubmissionPlural: isAutoSubmission ? 's' : ''
+    });
 
-  return await sendEmail(teacherEmail, subject, html);
+    return await sendEmail(teacherEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending task submission email:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Send auto-submission notification email to student
@@ -140,23 +134,18 @@ const sendAutoSubmissionNotificationEmail = async (studentEmail, studentName, ta
     return { success: false, error: 'Email service not configured' };
   }
 
-  const subject = `Task Auto-Submitted: ${taskTitle}`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Hello ${studentName},</h2>
-      <p>Your draft submission has been automatically submitted due to the deadline:</p>
-      <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
-        <h3 style="color: #856404; margin-top: 0;">${taskTitle}</h3>
-        <p><strong>Classroom:</strong> ${classroomName}</p>
-        <p style="color: #856404; font-weight: bold;">⚠️ Your draft submission was automatically submitted because the deadline has passed.</p>
-      </div>
-      <p style="color: #999; font-size: 14px;">
-        Please log in to your account to view the submission status and any feedback from your teacher.
-      </p>
-    </div>
-  `;
+  try {
+    const template = await renderEmailTemplate('auto_submission_notification', {
+      studentName,
+      taskTitle,
+      classroomName
+    });
 
-  return await sendEmail(studentEmail, subject, html);
+    return await sendEmail(studentEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending auto-submission notification email:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Send password reset email with OTP and link
@@ -166,22 +155,18 @@ const sendPasswordResetEmail = async (userEmail, userName, otp, resetLink) => {
     return { success: false, error: 'Email service not configured' };
   }
 
-  const subject = 'Password Reset Instructions';
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Hello ${userName},</h2>
-      <p>We received a request to reset your password. Use the OTP below or click the reset link:</p>
-      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <p style="font-size: 16px; color: #333; margin: 0 0 8px;">Your OTP:</p>
-        <div style="font-size: 28px; letter-spacing: 4px; font-weight: bold; color: #007bff;">${otp}</div>
-      </div>
-      <p>You can also reset your password using this link (valid for 5 minutes):</p>
-      <p><a href="${resetLink}" style="display: inline-block; background: #007bff; color: #fff; padding: 10px 16px; border-radius: 6px; text-decoration: none;">Reset Password</a></p>
-      <p style="color: #999; font-size: 14px;">If you did not request a password reset, you can ignore this email.</p>
-    </div>
-  `;
+  try {
+    const template = await renderEmailTemplate('password_reset', {
+      userName,
+      otp,
+      resetLink
+    });
 
-  return await sendEmail(userEmail, subject, html);
+    return await sendEmail(userEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 module.exports = {
@@ -201,21 +186,19 @@ const sendTeacherWelcomeEmail = async (teacherEmail, teacherName, tempPassword, 
     return { success: false, error: 'Email service not configured' };
   }
 
-  const subject = 'Welcome to the Platform (Teacher Account Created)';
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Hello ${teacherName},</h2>
-      <p>Your teacher account has been created by ${createdByName || 'Admin'}.</p>
-      <div style="background-color: #f8f9fa; padding: 16px; border-radius: 8px; margin: 16px 0;">
-        <p style="margin: 0 0 6px; color: #333;"><strong>Login Email:</strong> ${teacherEmail}</p>
-        <p style="margin: 0 0 6px; color: #333;"><strong>Temporary Password:</strong> ${tempPassword}</p>
-      </div>
-      <p style="color: #666;">For security, please sign in and change your password immediately.</p>
-      <p style="color: #999; font-size: 13px;">This is an automated message. Please do not reply.</p>
-    </div>
-  `;
+  try {
+    const template = await renderEmailTemplate('teacher_welcome', {
+      teacherName,
+      teacherEmail,
+      tempPassword,
+      createdByName: createdByName || 'Admin'
+    });
 
-  return await sendEmail(teacherEmail, subject, html);
+    return await sendEmail(teacherEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending teacher welcome email:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 module.exports.sendTeacherWelcomeEmail = sendTeacherWelcomeEmail;

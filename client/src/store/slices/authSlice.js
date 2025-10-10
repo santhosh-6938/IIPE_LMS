@@ -25,7 +25,15 @@ export const loginUser = createAsyncThunk(
       return response.data;
     } catch (error) {
       console.error('Login error:', error.response?.data || error.message);
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      const status = error.response?.status;
+      const code = error.response?.data?.code;
+      const message = error.response?.data?.message || 'Login failed';
+      if (status === 403 && code === 'ACCOUNT_BLOCKED') {
+        // Ensure no stale auth remains
+        try { localStorage.removeItem('token'); } catch {}
+        return rejectWithValue({ code, message });
+      }
+      return rejectWithValue(message);
     }
   }
 );
@@ -122,6 +130,7 @@ const authSlice = createSlice({
     isLoading: false,
     isAuthenticated: false,
     error: null,
+    blocked: false,
     resetStatus: null
   },
   reducers: {
@@ -138,6 +147,7 @@ const authSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+      state.blocked = false;
     },
     clearAuth: (state) => {
       localStorage.removeItem('token');
@@ -166,7 +176,16 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
+        // Handle blocked account specially
+        if (typeof action.payload === 'object' && action.payload?.code === 'ACCOUNT_BLOCKED') {
+          state.error = action.payload.message;
+          state.blocked = true;
+          state.user = null;
+          state.token = null;
+          state.isAuthenticated = false;
+        } else {
+          state.error = action.payload;
+        }
       })
       .addCase(registerUser.pending, (state) => {
         state.isLoading = true;

@@ -296,6 +296,7 @@ const getStatistics = async (req, res) => {
     const totalTeachers = await User.countDocuments({ role: 'teacher' });
     const totalAdmins = await User.countDocuments({ role: 'admin' });
     const activeUsers = await User.countDocuments({ isActive: true });
+    const blockedUsers = await User.countDocuments({ isBlocked: true });
     
     // Get counts for other entities
     const totalClassrooms = await Classroom.countDocuments();

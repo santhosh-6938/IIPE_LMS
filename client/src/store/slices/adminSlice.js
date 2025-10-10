@@ -49,6 +49,86 @@ export const fetchUserById = createAsyncThunk(
   }
 );
 
+// User blocking actions
+export const blockUser = createAsyncThunk(
+  'admin/blockUser',
+  async ({ userId, reason }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/user-blocking/block/${userId}`, 
+        { reason }, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to block user');
+    }
+  }
+);
+
+export const unblockUser = createAsyncThunk(
+  'admin/unblockUser',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/user-blocking/unblock/${userId}`, 
+        {}, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to unblock user');
+    }
+  }
+);
+
+export const fetchBlockedUsers = createAsyncThunk(
+  'admin/fetchBlockedUsers',
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/user-blocking/blocked`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch blocked users');
+    }
+  }
+);
+
+export const getUserBlockingStatus = createAsyncThunk(
+  'admin/getUserBlockingStatus',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/user-blocking/status/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch user blocking status');
+    }
+  }
+);
+
+export const bulkBlockUsers = createAsyncThunk(
+  'admin/bulkBlockUsers',
+  async ({ userIds, reason }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/user-blocking/bulk-block`, 
+        { userIds, reason }, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to bulk block users');
+    }
+  }
+);
+
 export const updateUser = createAsyncThunk(
   'admin/updateUser',
   async ({ userId, userData }, { rejectWithValue }) => {
@@ -151,10 +231,13 @@ const adminSlice = createSlice({
     classrooms: [],
     tasks: [],
     teacherActivity: null,
+    blockedUsers: [],
+    userBlockingStatus: null,
     pagination: {
       users: {},
       classrooms: {},
-      tasks: {}
+      tasks: {},
+      blockedUsers: {}
     },
     isLoading: false,
     error: null,
@@ -307,6 +390,95 @@ const adminSlice = createSlice({
         state.teacherActivity = action.payload;
       })
       .addCase(fetchTeacherActivity.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Block user
+      .addCase(blockUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(blockUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.successMessage = action.payload.message || 'User blocked successfully';
+        // Update user in the list
+        const userIndex = state.users.findIndex(user => user._id === action.payload.data.userId);
+        if (userIndex !== -1) {
+          state.users[userIndex].isBlocked = true;
+          state.users[userIndex].blockedAt = action.payload.data.blockedAt;
+          state.users[userIndex].blockedReason = action.payload.data.blockedReason;
+        }
+      })
+      .addCase(blockUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Unblock user
+      .addCase(unblockUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(unblockUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.successMessage = action.payload.message || 'User unblocked successfully';
+        // Update user in the list
+        const userIndex = state.users.findIndex(user => user._id === action.payload.data.userId);
+        if (userIndex !== -1) {
+          state.users[userIndex].isBlocked = false;
+          state.users[userIndex].blockedAt = null;
+          state.users[userIndex].blockedReason = null;
+        }
+      })
+      .addCase(unblockUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Fetch blocked users
+      .addCase(fetchBlockedUsers.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchBlockedUsers.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.blockedUsers = action.payload.data.users;
+        state.pagination.blockedUsers = action.payload.data.pagination;
+      })
+      .addCase(fetchBlockedUsers.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Get user blocking status
+      .addCase(getUserBlockingStatus.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(getUserBlockingStatus.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.userBlockingStatus = action.payload.data;
+      })
+      .addCase(getUserBlockingStatus.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Bulk block users
+      .addCase(bulkBlockUsers.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(bulkBlockUsers.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.successMessage = action.payload.message || 'Users blocked successfully';
+        // Update users in the list
+        action.payload.data.blockedUsers.forEach(blockedUser => {
+          const userIndex = state.users.findIndex(user => user._id === blockedUser.userId);
+          if (userIndex !== -1) {
+            state.users[userIndex].isBlocked = true;
+            state.users[userIndex].blockedAt = new Date().toISOString();
+            state.users[userIndex].blockedReason = action.payload.data.reason;
+          }
+        });
+      })
+      .addCase(bulkBlockUsers.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       });
