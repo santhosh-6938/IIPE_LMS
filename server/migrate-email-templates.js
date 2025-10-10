@@ -132,6 +132,41 @@ const initialTemplates = [
     description: 'Welcome email template for newly created teacher accounts',
     variables: ['teacherName', 'teacherEmail', 'tempPassword', 'createdByName']
   }
+  ,
+  {
+    templateName: 'teacher_blocked',
+    subject: 'Your IIPE LMS account has been blocked',
+    bodyHtml: `
+      <div style="font-family: Arial, sans-serif; color: #333;">
+        <h2 style="color:#b91c1c;">Account Blocked</h2>
+        <p>Dear {{teacherName}},</p>
+        <p>Your IIPE LMS account has been <strong>blocked</strong>.</p>
+        <p><strong>Reason:</strong> {{reason}}</p>
+        <p><strong>Blocked At:</strong> {{blockedAt}}</p>
+        <p>If you believe this is a mistake, please contact the admin.</p>
+        <p>Regards,<br/>{{adminName}}</p>
+      </div>
+    `,
+    bodyText: `Account Blocked\n\nDear {{teacherName}},\nYour IIPE LMS account has been blocked.\nReason: {{reason}}\nBlocked At: {{blockedAt}}\nPlease contact admin if this is a mistake.\nRegards, {{adminName}}`,
+    description: 'Email to teacher when account is blocked',
+    variables: ['teacherName','reason','blockedAt','adminName']
+  },
+  {
+    templateName: 'teacher_unblocked',
+    subject: 'Your IIPE LMS account has been unblocked',
+    bodyHtml: `
+      <div style="font-family: Arial, sans-serif; color: #333;">
+        <h2 style="color:#16a34a;">Account Unblocked</h2>
+        <p>Dear {{teacherName}},</p>
+        <p>Your IIPE LMS account has been <strong>unblocked</strong> and access is restored.</p>
+        <p><strong>Unblocked At:</strong> {{unblockedAt}}</p>
+        <p>Regards,<br/>{{adminName}}</p>
+      </div>
+    `,
+    bodyText: `Account Unblocked\n\nDear {{teacherName}},\nYour IIPE LMS account has been unblocked.\nUnblocked At: {{unblockedAt}}\nRegards, {{adminName}}`,
+    description: 'Email to teacher when account is unblocked',
+    variables: ['teacherName','unblockedAt','adminName']
+  }
 ];
 
 // Migration function

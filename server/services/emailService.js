@@ -202,3 +202,49 @@ const sendTeacherWelcomeEmail = async (teacherEmail, teacherName, tempPassword, 
 };
 
 module.exports.sendTeacherWelcomeEmail = sendTeacherWelcomeEmail;
+
+// Send account blocked email to teacher
+const sendAccountBlockedEmail = async (teacherEmail, teacherName, reason, blockedAt, adminName) => {
+  if (!isEmailConfigured()) {
+    console.log('Email service not configured, skipping account blocked email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  try {
+    const template = await renderEmailTemplate('teacher_blocked', {
+      teacherName,
+      reason: reason || 'No reason provided',
+      blockedAt: blockedAt ? new Date(blockedAt).toLocaleString() : new Date().toLocaleString(),
+      adminName: adminName || 'Admin'
+    });
+
+    return await sendEmail(teacherEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending account blocked email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Send account unblocked email to teacher
+const sendAccountUnblockedEmail = async (teacherEmail, teacherName, unblockedAt, adminName) => {
+  if (!isEmailConfigured()) {
+    console.log('Email service not configured, skipping account unblocked email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  try {
+    const template = await renderEmailTemplate('teacher_unblocked', {
+      teacherName,
+      unblockedAt: unblockedAt ? new Date(unblockedAt).toLocaleString() : new Date().toLocaleString(),
+      adminName: adminName || 'Admin'
+    });
+
+    return await sendEmail(teacherEmail, template.subject, template.bodyHtml, template.bodyText);
+  } catch (error) {
+    console.error('Error sending account unblocked email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+module.exports.sendAccountBlockedEmail = sendAccountBlockedEmail;
+module.exports.sendAccountUnblockedEmail = sendAccountUnblockedEmail;

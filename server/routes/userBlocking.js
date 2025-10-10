@@ -2,6 +2,7 @@ const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
 const User = require('../models/User');
 const { logActivity } = require('../middleware/activity');
+const { sendAccountBlockedEmail, sendAccountUnblockedEmail, isEmailConfigured } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -63,6 +64,15 @@ router.post('/block/:userId', auth, authorize(['admin']), async (req, res) => {
       });
     } catch (logError) {
       console.error('Error logging block activity:', logError);
+    }
+
+    // Send email notification to the user (best-effort)
+    if (isEmailConfigured() && user.role === 'teacher') {
+      try {
+        await sendAccountBlockedEmail(user.email, user.name, user.blockedReason, user.blockedAt, req.user.name);
+      } catch (emailErr) {
+        console.error('Failed to send account blocked email:', emailErr);
+      }
     }
 
     console.log(`User ${user.email} (${user.role}) blocked by admin ${req.user.email}`);
@@ -129,6 +139,15 @@ router.post('/unblock/:userId', auth, authorize(['admin']), async (req, res) => 
       });
     } catch (logError) {
       console.error('Error logging unblock activity:', logError);
+    }
+
+    // Send email notification to the user (best-effort)
+    if (isEmailConfigured() && user.role === 'teacher') {
+      try {
+        await sendAccountUnblockedEmail(user.email, user.name, new Date(), req.user.name);
+      } catch (emailErr) {
+        console.error('Failed to send account unblocked email:', emailErr);
+      }
     }
 
     console.log(`User ${user.email} (${user.role}) unblocked by admin ${req.user.email}`);
