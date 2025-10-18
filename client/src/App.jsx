@@ -22,6 +22,7 @@ import CompilerLanding from './components/compiler/CompilerLanding';
 import CompilerHistory from './components/compiler/CompilerHistory';
 import './App.css';
 import StudentTaskDetail from './components/student/StudentTaskDetail';
+import StudentMarksView from './components/student/StudentMarksView';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -296,6 +297,18 @@ function App() {
               ) : (
                 <PrivateRoute requiredRole="student">
                   <StudentTaskDetail />
+                </PrivateRoute>
+              )
+            } 
+          />
+          <Route 
+            path="/student/marks" 
+            element={
+              shouldRedirectToPasswordChange ? (
+                <Navigate to="/first-login-password-change" />
+              ) : (
+                <PrivateRoute requiredRole="student">
+                  <StudentMarksView />
                 </PrivateRoute>
               )
             } 

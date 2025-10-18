@@ -139,6 +139,11 @@ const ClassroomDetail = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">{classroom.name}</h3>
+                  {classroom.courseId && (
+                    <div className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded mb-3 inline-block">
+                      {classroom.courseId}
+                    </div>
+                  )}
                   <p className="text-gray-600 mb-4">{classroom.description}</p>
                   {classroom.subject && (
                     <div className="flex items-center space-x-2 mb-4">

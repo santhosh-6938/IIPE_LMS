@@ -7,7 +7,7 @@ import { fetchNotifications } from '../../store/slices/notificationSlice';
 import StudentClassroomCard from './StudentClassroomCard';
 import StudentTaskCard from './StudentTaskCard';
 import NotificationPanel from '../common/NotificationPanel';
-import { BookOpen, Clock, CheckCircle, Bell, Users, UserCircle } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle, Bell, Users, UserCircle, Award } from 'lucide-react';
 import { isAfter, isBefore, addDays } from 'date-fns';
 
 const StudentDashboard = () => {
@@ -124,6 +124,13 @@ const StudentDashboard = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => navigate('/student/marks')}
+                className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/90 hover:text-white"
+              >
+                <Award className="w-5 h-5" />
+                <span>Marks</span>
+              </button>
               <button 
                 onClick={() => navigate('/student/profile')}
                 className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/90 hover:text-white"

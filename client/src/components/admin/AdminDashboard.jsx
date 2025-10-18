@@ -9,6 +9,7 @@ import SystemMonitoring from './SystemMonitoring';
 import TeacherActivity from './TeacherActivity';
 import AdminAttendanceManager from './AdminAttendanceManager';
 import AutoSubmissionManager from './AutoSubmissionManager';
+import CourseFlagManager from './CourseFlagManager';
 
 const AdminDashboard = () => {
   const dispatch = useDispatch();
@@ -38,6 +39,7 @@ const AdminDashboard = () => {
     { id: 'overview', name: 'Overview', icon: '📊' },
     { id: 'users', name: 'User Management', icon: '👥' },
     { id: 'blocked-users', name: 'Blocked Users', icon: '🚫' },
+    { id: 'course-flags', name: 'Course Flags', icon: '🏷️' },
     { id: 'monitoring', name: 'System Monitoring', icon: '🔍' },
     { id: 'activity', name: 'Teacher Activity', icon: '📈' },
     { id: 'attendance', name: 'Attendance Management', icon: '📋' },
@@ -197,6 +199,8 @@ const AdminDashboard = () => {
         return <UserManagement />;
       case 'blocked-users':
         return <BlockedUsersManager />;
+      case 'course-flags':
+        return <CourseFlagManager />;
       case 'monitoring':
         return <SystemMonitoring />;
       case 'activity':

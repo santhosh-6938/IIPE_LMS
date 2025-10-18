@@ -22,6 +22,7 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/programs', require('./routes/programs'));
+app.use('/api/courses', require('./routes/courses'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/course-content', require('./routes/courseContent'));
@@ -34,6 +35,7 @@ app.use('/api/auto-submission', require('./routes/autoSubmission'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/email-templates', require('./routes/emailTemplates'));
 app.use('/api/user-blocking', require('./routes/userBlocking'));
+app.use('/api/marks', require('./routes/marks'));
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

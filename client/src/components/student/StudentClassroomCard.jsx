@@ -12,6 +12,11 @@ const StudentClassroomCard = ({ classroom }) => {
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">{classroom.name}</h3>
+          {classroom.courseId && (
+            <div className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded mb-2 inline-block">
+              {classroom.courseId}
+            </div>
+          )}
           <p className="text-gray-600 text-sm line-clamp-2">{classroom.description}</p>
         </div>
         <div className="p-2 bg-blue-100 rounded-lg ml-4">

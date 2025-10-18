@@ -7,7 +7,8 @@ import ClassroomCard from './ClassroomCard';
 import CreateClassroomModal from './CreateClassroomModal';
 import TaskSummary from './TaskSummary';
 import NotificationPanel from '../common/NotificationPanel';
-import { Plus, Users, BookOpen, Bell, BarChart3 } from 'lucide-react';
+import MidTermMarksManager from './MidTermMarksManager';
+import { Plus, Users, BookOpen, Bell, BarChart3, FileSpreadsheet, X } from 'lucide-react';
 import { isAfter, isBefore } from 'date-fns';
 
 const TeacherDashboard = () => {
@@ -20,6 +21,7 @@ const TeacherDashboard = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [tab, setTab] = useState('active'); // 'active' | 'archived'
+  const [showMarksManager, setShowMarksManager] = useState(false);
 
   useEffect(() => {
     dispatch(fetchClassrooms({ includeArchived: tab === 'archived' }));
@@ -73,6 +75,13 @@ const TeacherDashboard = () => {
                     {unreadCount}
                   </span>
                 )}
+              </button>
+              <button
+                onClick={() => setShowMarksManager(true)}
+                className="bg-brandGreen text-white px-4 py-2 rounded-lg hover:brightness-110 transition-colors flex items-center space-x-2 shadow-brand mr-3"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Marks</span>
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -271,6 +280,26 @@ const TeacherDashboard = () => {
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
         />
+      )}
+
+      {/* Marks Manager Modal */}
+      {showMarksManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Mid Term Marks Management</h2>
+                <button
+                  onClick={() => setShowMarksManager(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <MidTermMarksManager />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

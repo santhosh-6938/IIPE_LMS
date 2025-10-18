@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTasks, fetchTaskById, updateTask, deleteTask, setSubmissionRemarks, fetchInteractions, replyInteraction, fetchGroupInteractions, postGroupInteraction } from '../../store/slices/taskSlice';
+import TaskMarksManager from './TaskMarksManager';
 import { toast } from 'react-toastify';
-import { ArrowLeft, FileText, Calendar, Users, Download, Eye, CheckCircle, Clock, AlertCircle, Upload, Image, File, X } from 'lucide-react';
+import { ArrowLeft, FileText, Calendar, Users, Download, Eye, CheckCircle, Clock, AlertCircle, Upload, Image, File, X, Award } from 'lucide-react';
 import { format, isAfter, isBefore } from 'date-fns';
 import axios from 'axios';
 
@@ -246,6 +247,7 @@ const TaskDetail = () => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: FileText },
     { id: 'submissions', label: 'Submissions', icon: Users },
+    { id: 'marks', label: 'Marks', icon: Award },
     { id: 'interaction', label: 'Group Discussion', icon: Users },
   ];
 
@@ -766,6 +768,12 @@ const TaskDetail = () => {
                 </div>
               )}
             </div>
+          </div>
+        );
+      case 'marks':
+        return (
+          <div className="space-y-6">
+            <TaskMarksManager taskId={taskId} onClose={() => {}} />
           </div>
         );
       case 'interaction':

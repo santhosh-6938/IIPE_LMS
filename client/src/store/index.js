@@ -7,6 +7,7 @@ import courseContentSlice from './slices/courseContentSlice';
 import adminSlice from './slices/adminSlice';
 import attendanceSlice from './slices/attendanceSlice';
 import adminTeacherAttendanceSlice from './slices/adminTeacherAttendanceSlice';
+import marksSlice from './slices/marksSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     admin: adminSlice,
     attendance: attendanceSlice,
     adminTeacherAttendance: adminTeacherAttendanceSlice,
+    marks: marksSlice,
   },
 });
 

@@ -94,7 +94,7 @@ router.get('/', auth, async (req, res) => {
 // Create classroom (teacher only)
 router.post('/', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth } = req.body;
+    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth, courseCode, section } = req.body;
 
     // Enforce concise description on server
     const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
@@ -118,15 +118,55 @@ router.post('/', auth, authorize('teacher'), async (req, res) => {
     if (!branch || typeof branch !== 'string' || !branch.trim()) {
       return res.status(400).json({ message: 'Branch is required' });
     }
+    if (!courseCode || !/^[0-9]{4}$/.test(courseCode)) {
+      return res.status(400).json({ message: 'Course code must be exactly 4 digits' });
+    }
+    if (!section || !/^[a-zA-Z0-9]+$/.test(section) || section.length < 1) {
+      return res.status(400).json({ message: 'Section must contain only alphanumeric characters and be at least 1 character long' });
+    }
+
+    // Auto-fetch subject if not provided but course code is valid
+    let finalSubject = subject;
+    if (!finalSubject && courseCode) {
+      try {
+        const Course = require('../models/Course');
+        const course = await Course.findOne({ 
+          courseCode: courseCode.trim(),
+          isActive: true 
+        });
+        if (course) {
+          finalSubject = course.subject;
+        }
+      } catch (error) {
+        console.error('Error auto-fetching subject:', error);
+        // Continue without subject if fetch fails
+      }
+    }
+
+    // Check for duplicate courseId before creating
+    const semIndicator = semester === 'Autumn' ? '0' : '1';
+    const academicYearShort = academicYear.split('-').map(year => year.slice(-2)).join('');
+    // Replace spaces with underscores in branch name
+    const branchFormatted = branch.toLowerCase().replace(/\s+/g, '_');
+    const generatedCourseId = `${courseCode}_${semIndicator}_${branchFormatted}_${section.toLowerCase()}_${academicYearShort}`;
+    
+    const existingClassroom = await Classroom.findOne({ courseId: generatedCourseId });
+    if (existingClassroom) {
+      return res.status(400).json({ 
+        message: `A classroom with course ID "${generatedCourseId}" already exists. Please use different course code, section, or academic year.` 
+      });
+    }
 
     const classroom = new Classroom({
       name,
       description,
-      subject,
+      subject: finalSubject,
       semester,
       academicYear,
       program,
       branch,
+      courseCode,
+      section,
       startMonth: startMonth || null,
       endMonth: endMonth || null,
       teacher: req.user._id
@@ -139,6 +179,13 @@ router.post('/', auth, authorize('teacher'), async (req, res) => {
     res.status(201).json(classroom);
   } catch (error) {
     console.error('Create classroom error:', error);
+    if (error.code === 11000) {
+      // Duplicate key error (courseId uniqueness)
+      return res.status(400).json({ message: 'A classroom with this course ID already exists' });
+    }
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -173,7 +220,7 @@ router.get('/:id', auth, async (req, res) => {
 // Update classroom (teacher only)
 router.put('/:id', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth, coverImage } = req.body;
+    const { name, description, subject, semester, academicYear, program, branch, startMonth, endMonth, coverImage, courseCode, section } = req.body;
 
     const countWords = (s) => (typeof s === 'string' && s.trim()) ? s.trim().split(/\s+/).length : 0;
     const DESC_LIMIT = 60;
@@ -221,6 +268,18 @@ router.put('/:id', auth, authorize('teacher'), async (req, res) => {
         return res.status(400).json({ message: 'Invalid branch' });
       }
       classroom.branch = branch.trim();
+    }
+    if (courseCode !== undefined) {
+      if (!courseCode || !/^[0-9]{4}$/.test(courseCode)) {
+        return res.status(400).json({ message: 'Course code must be exactly 4 digits' });
+      }
+      classroom.courseCode = courseCode;
+    }
+    if (section !== undefined) {
+      if (!section || !/^[a-zA-Z0-9]+$/.test(section) || section.length < 1) {
+        return res.status(400).json({ message: 'Section must contain only alphanumeric characters and be at least 1 character long' });
+      }
+      classroom.section = section;
     }
     if (startMonth !== undefined) {
       const m = Number(startMonth);

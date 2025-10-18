@@ -4,7 +4,7 @@ import { updateClassroom } from '../../store/slices/classroomSlice';
 import { Upload, Save, X, Image as ImageIcon, Edit3, BookOpen, FileText, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const ClassroomSettings = ({ classroom, onUpdate }) => {
   const dispatch = useDispatch();
@@ -356,6 +356,22 @@ const ClassroomSettings = ({ classroom, onUpdate }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
+              <h4 className="text-sm font-medium text-gray-500 mb-1">Course ID</h4>
+              <p className="text-gray-900 font-mono text-sm bg-gray-50 px-2 py-1 rounded border">
+                {classroom.courseId || 'Not generated'}
+              </p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 mb-1">Subject</h4>
+              {classroom.subject ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  📚 {classroom.subject}
+                </span>
+              ) : (
+                <p className="text-gray-500 italic">No subject specified</p>
+              )}
+            </div>
+            <div>
               <h4 className="text-sm font-medium text-gray-500 mb-1">Program</h4>
               <p className="text-gray-900 font-medium">{classroom.program}</p>
             </div>
@@ -365,6 +381,14 @@ const ClassroomSettings = ({ classroom, onUpdate }) => {
             </div>
           </div>
           <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 mb-1">Course Code</h4>
+              <p className="text-gray-900 font-medium">{classroom.courseCode || 'Not set'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 mb-1">Section</h4>
+              <p className="text-gray-900 font-medium">{classroom.section || 'Not set'}</p>
+            </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500 mb-1">Semester</h4>
               <p className="text-gray-900 font-medium">{classroom.semester}</p>
