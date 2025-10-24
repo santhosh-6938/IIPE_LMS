@@ -1,5 +1,6 @@
 const express = require('express');
 const { auth } = require('../middleware/auth');
+const { authRateLimiter } = require('../middleware/rateLimiter');
 const {
   register,
   login,
@@ -12,10 +13,10 @@ const {
 const router = express.Router();
 
 // Register new user
-router.post('/register', register);
+router.post('/register', authRateLimiter, register);
 
 // Login user
-router.post('/login', login);
+router.post('/login', authRateLimiter, login);
 
 // Get current user
 router.get('/me', auth, getMe);

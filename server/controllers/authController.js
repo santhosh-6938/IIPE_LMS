@@ -4,11 +4,26 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { logActivity } = require('../middleware/activity');
 const { sendPasswordResetEmail } = require('../services/emailService');
+const { isEmailVerified } = require('../services/emailVerificationService');
+const { 
+  createUserSession, 
+  checkConcurrentLogin, 
+  sendConcurrentLoginNotification 
+} = require('../services/sessionManagementService');
 
 // Register new user
 const register = async (req, res) => {
   try {
     const { name, email, password, role, rollNumber, adminCode } = req.body;
+
+    // Check if email is verified
+    const emailVerified = await isEmailVerified(email, 'signup');
+    if (!emailVerified) {
+      return res.status(400).json({ 
+        message: 'Email must be verified before registration',
+        code: 'EMAIL_NOT_VERIFIED'
+      });
+    }
 
     // Check if user already exists by email
     const existingUserByEmail = await User.findOne({ email });
@@ -56,6 +71,11 @@ const register = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    // Create user session
+    const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    await createUserSession(user._id, token, ipAddress, userAgent);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -139,12 +159,59 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // Check if email is verified for login
+    const emailVerified = await isEmailVerified(user.email, 'login');
+    if (!emailVerified) {
+      return res.status(400).json({ 
+        message: 'Email must be verified before login',
+        code: 'EMAIL_NOT_VERIFIED'
+      });
+    }
+
+    // Check for concurrent login
+    const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const concurrentLoginCheck = await checkConcurrentLogin(user._id, ipAddress, userAgent);
+
+    if (concurrentLoginCheck.hasConcurrentLogin) {
+      if (concurrentLoginCheck.code === 'IP_BLOCKED') {
+        return res.status(429).json({
+          message: concurrentLoginCheck.message,
+          code: concurrentLoginCheck.code,
+          blockedUntil: concurrentLoginCheck.blockedUntil,
+          attemptNumber: concurrentLoginCheck.attemptNumber
+        });
+      }
+
+      if (concurrentLoginCheck.code === 'PENDING_REQUEST_EXISTS') {
+        return res.status(409).json({
+          message: concurrentLoginCheck.message,
+          code: concurrentLoginCheck.code
+        });
+      }
+
+      // Send notification to existing user
+      await sendConcurrentLoginNotification(user._id, {
+        ipAddress,
+        userAgent
+      });
+
+      return res.status(409).json({
+        message: 'Concurrent login detected. Please wait for approval from your active session.',
+        code: 'CONCURRENT_LOGIN_DETECTED',
+        requestId: concurrentLoginCheck.requestId
+      });
+    }
+
     // Create JWT token
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    // Create user session
+    await createUserSession(user._id, token, ipAddress, userAgent);
 
     res.json({
       message: 'Login successful',

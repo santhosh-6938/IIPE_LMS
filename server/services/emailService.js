@@ -248,3 +248,6 @@ const sendAccountUnblockedEmail = async (teacherEmail, teacherName, unblockedAt,
 
 module.exports.sendAccountBlockedEmail = sendAccountBlockedEmail;
 module.exports.sendAccountUnblockedEmail = sendAccountUnblockedEmail;
+
+// Note: Email verification OTP is now handled by emailVerificationService.js using database templates
+// This function is kept for backward compatibility but redirects to the proper service

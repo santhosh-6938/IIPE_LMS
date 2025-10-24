@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const cron = require('node-cron');
+const { generalRateLimiter } = require('./middleware/rateLimiter');
 require('dotenv').config();
 
 const app = express();
@@ -10,6 +11,8 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Apply general rate limiting
+app.use(generalRateLimiter);
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -20,6 +23,8 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/email-verification', require('./routes/emailVerification'));
+app.use('/api/session-management', require('./routes/sessionManagement'));
 app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/programs', require('./routes/programs'));
 app.use('/api/courses', require('./routes/courses'));
@@ -45,6 +50,8 @@ app.listen(PORT, () => {
 // Auto-submission cron job setup
 const autoSubmissionService = require('./services/autoSubmissionService');
 const Classroom = require('./models/Classroom');
+const { cleanupExpiredVerifications } = require('./services/emailVerificationService');
+const { cleanupExpiredSessions } = require('./services/sessionManagementService');
 
 // Schedule auto-submission to run every minute
 // This ensures submissions are processed close to the deadline
@@ -112,3 +119,33 @@ cron.schedule('0 1 * * *', async () => {
 });
 
 console.log('Classroom auto-archive cron job scheduled daily at 01:00 UTC');
+
+// Email verification cleanup job: run every 5 minutes
+cron.schedule('*/5 * * * *', async () => {
+  try {
+    console.log('Running email verification cleanup...');
+    await cleanupExpiredVerifications();
+  } catch (error) {
+    console.error('Email verification cleanup cron job error:', error);
+  }
+}, {
+  scheduled: true,
+  timezone: "UTC"
+});
+
+console.log('Email verification cleanup cron job scheduled every 5 minutes');
+
+// Session cleanup job: run every hour
+cron.schedule('0 * * * *', async () => {
+  try {
+    console.log('Running session cleanup...');
+    await cleanupExpiredSessions();
+  } catch (error) {
+    console.error('Session cleanup cron job error:', error);
+  }
+}, {
+  scheduled: true,
+  timezone: "UTC"
+});
+
+console.log('Session cleanup cron job scheduled every hour');

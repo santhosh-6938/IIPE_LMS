@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { loginUser, clearError, logout } from '../../store/slices/authSlice';
+import EmailVerification from './EmailVerification';
 // Join classroom functionality has been removed
-import { Eye, EyeOff, LogIn, LogOut, User } from 'lucide-react';
+import { Eye, EyeOff, LogIn, LogOut, User, Mail } from 'lucide-react';
 
 const Login = () => {
   const dispatch = useDispatch();
@@ -21,6 +22,8 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState('email'); // 'email' or 'rollNumber'
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [pendingLoginData, setPendingLoginData] = useState(null);
 
   useEffect(() => {
     // If forceLogout is true, logout the user
@@ -57,7 +60,22 @@ const Login = () => {
       loginData.rollNumber = formData.rollNumber;
     }
     
-    dispatch(loginUser(loginData));
+    // Store login data for after email verification
+    setPendingLoginData(loginData);
+    setShowEmailVerification(true);
+  };
+
+  const handleEmailVerified = () => {
+    setShowEmailVerification(false);
+    if (pendingLoginData) {
+      dispatch(loginUser(pendingLoginData));
+      setPendingLoginData(null);
+    }
+  };
+
+  const handleEmailVerificationCancel = () => {
+    setShowEmailVerification(false);
+    setPendingLoginData(null);
   };
 
   const handleLogout = () => {
@@ -122,32 +140,41 @@ const Login = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Login Method Toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => setLoginMethod('email')}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                  loginMethod === 'email'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Email
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginMethod('rollNumber')}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                  loginMethod === 'rollNumber'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Roll Number
-              </button>
-            </div>
+          {showEmailVerification ? (
+            <EmailVerification
+              email={loginMethod === 'email' ? formData.email : ''}
+              purpose="login"
+              onVerified={handleEmailVerified}
+              onCancel={handleEmailVerificationCancel}
+              isVisible={showEmailVerification}
+            />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Login Method Toggle */}
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod('email')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    loginMethod === 'email'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod('rollNumber')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    loginMethod === 'rollNumber'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Roll Number
+                </button>
+              </div>
 
             {loginMethod === 'email' ? (
               <div>
@@ -214,18 +241,22 @@ const Login = () => {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Sign In
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-gray-600 mb-2">

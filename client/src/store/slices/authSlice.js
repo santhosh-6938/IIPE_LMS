@@ -122,6 +122,74 @@ export const changePasswordFirstLogin = createAsyncThunk(
   }
 );
 
+// Send email verification OTP
+export const sendEmailVerificationOTP = createAsyncThunk(
+  'auth/sendEmailVerificationOTP',
+  async ({ email, purpose = 'signup' }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/email-verification/send-otp`, {
+        email,
+        purpose
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to send verification code');
+    }
+  }
+);
+
+// Verify email OTP
+export const verifyEmailOTP = createAsyncThunk(
+  'auth/verifyEmailOTP',
+  async ({ email, otp, purpose = 'signup' }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/email-verification/verify-otp`, {
+        email,
+        otp,
+        purpose
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to verify code');
+    }
+  }
+);
+
+// Get concurrent login requests
+export const getConcurrentLoginRequests = createAsyncThunk(
+  'auth/getConcurrentLoginRequests',
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/session-management/concurrent-login-requests`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to get concurrent login requests');
+    }
+  }
+);
+
+// Handle concurrent login response
+export const handleConcurrentLoginResponse = createAsyncThunk(
+  'auth/handleConcurrentLoginResponse',
+  async ({ requestId, response }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response_data = await axios.post(`${API_URL}/session-management/concurrent-login-response`, {
+        requestId,
+        response
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response_data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to handle concurrent login response');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
@@ -131,7 +199,18 @@ const authSlice = createSlice({
     isAuthenticated: false,
     error: null,
     blocked: false,
-    resetStatus: null
+    resetStatus: null,
+    emailVerification: {
+      isLoading: false,
+      error: null,
+      isVerified: false,
+      expiresIn: null
+    },
+    concurrentLogin: {
+      requests: [],
+      isLoading: false,
+      error: null
+    }
   },
   reducers: {
     logout: (state) => {
@@ -160,6 +239,15 @@ const authSlice = createSlice({
       if (state.user) {
         state.user = { ...state.user, ...action.payload };
       }
+    },
+    clearEmailVerificationError: (state) => {
+      state.emailVerification.error = null;
+    },
+    setEmailVerified: (state, action) => {
+      state.emailVerification.isVerified = action.payload;
+    },
+    clearConcurrentLoginError: (state) => {
+      state.concurrentLogin.error = null;
     }
   },
   extraReducers: (builder) => {
@@ -183,6 +271,9 @@ const authSlice = createSlice({
           state.user = null;
           state.token = null;
           state.isAuthenticated = false;
+        } else if (typeof action.payload === 'object' && action.payload?.code === 'IP_BLOCKED') {
+          state.error = action.payload.message;
+          state.blocked = true;
         } else {
           state.error = action.payload;
         }
@@ -252,9 +343,68 @@ const authSlice = createSlice({
       .addCase(resetPassword.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
+      })
+      .addCase(sendEmailVerificationOTP.pending, (state) => {
+        state.emailVerification.isLoading = true;
+        state.emailVerification.error = null;
+      })
+      .addCase(sendEmailVerificationOTP.fulfilled, (state, action) => {
+        state.emailVerification.isLoading = false;
+        state.emailVerification.expiresIn = action.payload.expiresIn;
+      })
+      .addCase(sendEmailVerificationOTP.rejected, (state, action) => {
+        state.emailVerification.isLoading = false;
+        state.emailVerification.error = action.payload;
+      })
+      .addCase(verifyEmailOTP.pending, (state) => {
+        state.emailVerification.isLoading = true;
+        state.emailVerification.error = null;
+      })
+      .addCase(verifyEmailOTP.fulfilled, (state) => {
+        state.emailVerification.isLoading = false;
+        state.emailVerification.isVerified = true;
+      })
+      .addCase(verifyEmailOTP.rejected, (state, action) => {
+        state.emailVerification.isLoading = false;
+        state.emailVerification.error = action.payload;
+      })
+      .addCase(getConcurrentLoginRequests.pending, (state) => {
+        state.concurrentLogin.isLoading = true;
+        state.concurrentLogin.error = null;
+      })
+      .addCase(getConcurrentLoginRequests.fulfilled, (state, action) => {
+        state.concurrentLogin.isLoading = false;
+        state.concurrentLogin.requests = action.payload.requests;
+      })
+      .addCase(getConcurrentLoginRequests.rejected, (state, action) => {
+        state.concurrentLogin.isLoading = false;
+        state.concurrentLogin.error = action.payload;
+      })
+      .addCase(handleConcurrentLoginResponse.pending, (state) => {
+        state.concurrentLogin.isLoading = true;
+        state.concurrentLogin.error = null;
+      })
+      .addCase(handleConcurrentLoginResponse.fulfilled, (state, action) => {
+        state.concurrentLogin.isLoading = false;
+        // Remove the handled request from the list
+        state.concurrentLogin.requests = state.concurrentLogin.requests.filter(
+          req => req.requestId !== action.meta.arg.requestId
+        );
+      })
+      .addCase(handleConcurrentLoginResponse.rejected, (state, action) => {
+        state.concurrentLogin.isLoading = false;
+        state.concurrentLogin.error = action.payload;
       });
   },
 });
 
-export const { logout, clearError, clearAuth, updateUser } = authSlice.actions;
+export const { 
+  logout, 
+  clearError, 
+  clearAuth, 
+  updateUser, 
+  clearEmailVerificationError, 
+  setEmailVerified, 
+  clearConcurrentLoginError 
+} = authSlice.actions;
 export default authSlice.reducer;

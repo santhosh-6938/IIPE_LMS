@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser, clearError, logout } from '../../store/slices/authSlice';
-import { Eye, EyeOff, UserPlus, LogOut, User } from 'lucide-react';
+import EmailVerification from './EmailVerification';
+import { Eye, EyeOff, UserPlus, LogOut, User, Mail } from 'lucide-react';
 
 const Register = () => {
   const dispatch = useDispatch();
@@ -20,6 +21,8 @@ const Register = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [pendingRegistrationData, setPendingRegistrationData] = useState(null);
 
   useEffect(() => {
     // Check for force logout query parameter
@@ -59,8 +62,23 @@ const Register = () => {
     }
     
     const { confirmPassword, ...userData } = formData;
-    // Allow student or admin registration without access code
-    dispatch(registerUser(userData));
+    
+    // Store registration data for after email verification
+    setPendingRegistrationData(userData);
+    setShowEmailVerification(true);
+  };
+
+  const handleEmailVerified = () => {
+    setShowEmailVerification(false);
+    if (pendingRegistrationData) {
+      dispatch(registerUser(pendingRegistrationData));
+      setPendingRegistrationData(null);
+    }
+  };
+
+  const handleEmailVerificationCancel = () => {
+    setShowEmailVerification(false);
+    setPendingRegistrationData(null);
   };
 
   const handleLogout = () => {
@@ -120,22 +138,31 @@ const Register = () => {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
+          {showEmailVerification ? (
+            <EmailVerification
+              email={formData.email}
+              purpose="signup"
+              onVerified={handleEmailVerified}
+              onCancel={handleEmailVerificationCancel}
+              isVisible={showEmailVerification}
+            />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -271,18 +298,22 @@ const Register = () => {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isLoading || formData.password !== formData.confirmPassword || (formData.role === 'student' && !formData.rollNumber.trim()) || formData.password.length < 6}
-              className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isLoading || formData.password !== formData.confirmPassword || (formData.role === 'student' && !formData.rollNumber.trim()) || formData.password.length < 6}
+                className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Create Account
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-gray-600">

@@ -23,6 +23,7 @@ import CompilerHistory from './components/compiler/CompilerHistory';
 import './App.css';
 import StudentTaskDetail from './components/student/StudentTaskDetail';
 import StudentMarksView from './components/student/StudentMarksView';
+import ConcurrentLoginManager from './components/auth/ConcurrentLoginManager';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -333,6 +334,9 @@ function App() {
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        
+        {/* Global Concurrent Login Manager */}
+        <ConcurrentLoginManager isVisible={isAuthenticated} />
       </div>
     </Router>
   );
