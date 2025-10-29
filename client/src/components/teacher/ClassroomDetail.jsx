@@ -1,31 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchClassrooms } from '../../store/slices/classroomSlice';
-import CourseContentManager from './CourseContentManager';
-import StudentManager from './StudentManager';
-import TaskManager from './TaskManager';
-import AttendanceManager from './AttendanceManager';
-import ClassroomSettings from './ClassroomSettings';
-import CoTeacherManager from './CoTeacherManager';
-import { ArrowLeft, Users, FileText, Settings, BookOpen, Calendar, Clock, CheckSquare, UserPlus } from 'lucide-react';
-import { format } from 'date-fns';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchClassrooms } from "../../store/slices/classroomSlice";
+import CourseContentManager from "./CourseContentManager";
+import StudentManager from "./StudentManager";
+import TaskManager from "./TaskManager";
+import AttendanceManager from "./AttendanceManager";
+import ClassroomSettings from "./ClassroomSettings";
+import CoTeacherManager from "./CoTeacherManager";
+import {
+  ArrowLeft,
+  Users,
+  FileText,
+  Settings,
+  BookOpen,
+  Calendar,
+  Clock,
+  CheckSquare,
+  UserPlus,
+} from "lucide-react";
+import { format } from "date-fns";
+import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 const ClassroomDetail = () => {
   const { classroomId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { classrooms } = useSelector(state => state.classroom);
-  const [activeTab, setActiveTab] = useState('overview');
+  const { classrooms } = useSelector((state) => state.classroom);
+  const [activeTab, setActiveTab] = useState("overview");
   const [courseContentCount, setCourseContentCount] = useState(0);
   const [taskCount, setTaskCount] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const classroom = classrooms.find(c => c._id === classroomId);
+  const classroom = classrooms.find((c) => c._id === classroomId);
+  const user = useSelector((state) => state.user?.user || state.auth?.user);
 
   useEffect(() => {
     if (!classroom) {
@@ -36,7 +47,7 @@ const ClassroomDetail = () => {
   // Initialize active tab from query param
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tabParam = params.get('tab');
+    const tabParam = params.get("tab");
     if (tabParam) {
       setActiveTab(tabParam);
     }
@@ -51,7 +62,7 @@ const ClassroomDetail = () => {
 
   // Refresh counts when content tab is active
   useEffect(() => {
-    if (activeTab === 'content') {
+    if (activeTab === "content") {
       fetchCounts();
     }
   }, [activeTab]);
@@ -69,12 +80,15 @@ const ClassroomDetail = () => {
 
     try {
       setIsUpdating(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
       // Fetch course content count
       try {
-        const contentResponse = await axios.get(`${API_URL}/course-content/classroom/${classroomId}`, { headers });
+        const contentResponse = await axios.get(
+          `${API_URL}/course-content/classroom/${classroomId}`,
+          { headers }
+        );
         setCourseContentCount(contentResponse.data.length);
       } catch (contentError) {
         setCourseContentCount(0);
@@ -82,7 +96,10 @@ const ClassroomDetail = () => {
 
       // Fetch task count
       try {
-        const taskResponse = await axios.get(`${API_URL}/tasks/classroom/${classroomId}`, { headers });
+        const taskResponse = await axios.get(
+          `${API_URL}/tasks/classroom/${classroomId}`,
+          { headers }
+        );
         setTaskCount(taskResponse.data.length);
       } catch (taskError) {
         setTaskCount(0);
@@ -90,7 +107,7 @@ const ClassroomDetail = () => {
     } catch (error) {
       // Only log actual errors, not expected ones
       if (error.response?.status !== 404) {
-        console.error('Error fetching counts:', error);
+        console.error("Error fetching counts:", error);
       }
     } finally {
       setIsUpdating(false);
@@ -121,26 +138,30 @@ const ClassroomDetail = () => {
   }
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: BookOpen },
-    { id: 'tasks', label: 'Tasks', icon: Clock },
-    { id: 'content', label: 'Course Content', icon: FileText },
-    { id: 'students', label: 'Students', icon: Users },
-    { id: 'attendance', label: 'Attendance', icon: CheckSquare },
-    { id: 'co-teacher', label: 'Co-Teacher', icon: UserPlus },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: "overview", label: "Overview", icon: BookOpen },
+    { id: "tasks", label: "Tasks", icon: Clock },
+    { id: "content", label: "Course Content", icon: FileText },
+    { id: "students", label: "Students", icon: Users },
+    { id: "attendance", label: "Attendance", icon: CheckSquare },
+    { id: "co-teacher", label: "Co-Teacher", icon: UserPlus },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'overview':
+      case "overview":
         return (
           <div className="space-y-6">
             {/* Classroom Info */}
             <div className="bg-white rounded-lg p-6 border">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Classroom Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                Classroom Information
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{classroom.name}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {classroom.name}
+                  </h3>
                   {classroom.courseId && (
                     <div className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded mb-3 inline-block">
                       {classroom.courseId}
@@ -149,7 +170,9 @@ const ClassroomDetail = () => {
                   <p className="text-gray-600 mb-4">{classroom.description}</p>
                   {classroom.subject && (
                     <div className="flex items-center space-x-2 mb-4">
-                      <span className="text-sm font-medium text-gray-700">Subject:</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Subject:
+                      </span>
                       <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                         {classroom.subject}
                       </span>
@@ -157,7 +180,10 @@ const ClassroomDetail = () => {
                   )}
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
-                    <span>Created {format(new Date(classroom.createdAt), 'MMMM d, yyyy')}</span>
+                    <span>
+                      Created{" "}
+                      {format(new Date(classroom.createdAt), "MMMM d, yyyy")}
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -172,16 +198,38 @@ const ClassroomDetail = () => {
                       Students can be added to this classroom by the teacher
                     </p>
                   </div>
-                  
-                  {/* Co-Teacher Information */}
+
+                  {/* Teacher Information */}
                   {classroom.coTeacherEnabled && classroom.coTeacher && (
                     <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
                       <div className="flex items-center space-x-2 mb-2">
                         <UserPlus className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-medium text-gray-900">Co-Teacher</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {user?.email === classroom.teacher.email
+                            ? "Co-Teacher"
+                            : "Main Teacher"}
+                        </span>
                       </div>
-                      <p className="text-sm text-gray-700">{classroom.coTeacher.name}</p>
-                      <p className="text-xs text-gray-600">{classroom.coTeacher.email}</p>
+
+                      {user?.email === classroom.teacher.email ? (
+                        <>
+                          <p className="text-sm text-gray-700">
+                            {classroom.coTeacher.name}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {classroom.coTeacher.email}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-gray-700">
+                            {classroom.teacher.name}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {classroom.teacher.email}
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -196,7 +244,9 @@ const ClassroomDetail = () => {
                     <Users className="w-8 h-8 text-blue-600" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-2xl font-bold text-gray-900">{classroom.students?.length || 0}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {classroom.students?.length || 0}
+                    </p>
                     <p className="text-gray-600">Enrolled Students</p>
                   </div>
                 </div>
@@ -208,7 +258,9 @@ const ClassroomDetail = () => {
                     <FileText className="w-8 h-8 text-green-600" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-2xl font-bold text-gray-900">{courseContentCount}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {courseContentCount}
+                    </p>
                     <p className="text-gray-600">Course Materials</p>
                   </div>
                 </div>
@@ -220,7 +272,9 @@ const ClassroomDetail = () => {
                     <BookOpen className="w-8 h-8 text-orange-600" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-2xl font-bold text-gray-900">{taskCount}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {taskCount}
+                    </p>
                     <p className="text-gray-600">Active Tasks</p>
                   </div>
                 </div>
@@ -229,7 +283,9 @@ const ClassroomDetail = () => {
 
             {/* Recent Activity */}
             <div className="bg-white rounded-lg p-6 border">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Recent Activity
+              </h3>
               <div className="text-center py-8">
                 <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-600">No recent activity</p>
@@ -237,18 +293,43 @@ const ClassroomDetail = () => {
             </div>
           </div>
         );
-      case 'tasks':
-        return <TaskManager classroomId={classroomId} onUpdate={handleClassroomUpdate} />;
-      case 'content':
-        return <CourseContentManager classroomId={classroomId} onUpdate={handleClassroomUpdate} />;
-      case 'students':
-        return <StudentManager classroom={classroom} onUpdate={handleClassroomUpdate} />;
-      case 'attendance':
+      case "tasks":
+        return (
+          <TaskManager
+            classroomId={classroomId}
+            onUpdate={handleClassroomUpdate}
+          />
+        );
+      case "content":
+        return (
+          <CourseContentManager
+            classroomId={classroomId}
+            onUpdate={handleClassroomUpdate}
+          />
+        );
+      case "students":
+        return (
+          <StudentManager
+            classroom={classroom}
+            onUpdate={handleClassroomUpdate}
+          />
+        );
+      case "attendance":
         return <AttendanceManager />;
-      case 'co-teacher':
-        return <CoTeacherManager classroom={classroom} onUpdate={handleClassroomUpdate} />;
-      case 'settings':
-        return <ClassroomSettings classroom={classroom} onUpdate={handleClassroomUpdate} />;
+      case "co-teacher":
+        return (
+          <CoTeacherManager
+            classroom={classroom}
+            onUpdate={handleClassroomUpdate}
+          />
+        );
+      case "settings":
+        return (
+          <ClassroomSettings
+            classroom={classroom}
+            onUpdate={handleClassroomUpdate}
+          />
+        );
       default:
         return null;
     }
@@ -262,7 +343,7 @@ const ClassroomDetail = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/teacher/dashboard')}
+                onClick={() => navigate("/teacher/dashboard")}
                 className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -276,12 +357,13 @@ const ClassroomDetail = () => {
                   />
                 )}
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{classroom.name}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {classroom.name}
+                  </h1>
                   <p className="text-gray-600">{classroom.description}</p>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>
@@ -296,10 +378,11 @@ const ClassroomDetail = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{tab.label}</span>
