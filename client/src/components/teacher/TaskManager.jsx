@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchTasks } from '../../store/slices/taskSlice';
+import { fetchTasks, extendTaskDeadline } from '../../store/slices/taskSlice';
 import CreateTaskModal from './CreateTaskModal';
 import { Plus, FileText, Calendar, Users, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { format, isAfter, isBefore } from 'date-fns';
@@ -11,6 +11,8 @@ const TaskManager = ({ classroomId, onUpdate }) => {
   const navigate = useNavigate();
   const { tasks, isLoading } = useSelector(state => state.task);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [extendForTask, setExtendForTask] = useState(null);
+  const [extendForm, setExtendForm] = useState({ extendedDeadline: '', lateSubmissionPenalty: '' });
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
@@ -204,6 +206,12 @@ const TaskManager = ({ classroomId, onUpdate }) => {
                     </span>
                   </div>
 
+                  {task.extendedDeadline && (
+                    <div className="text-xs text-gray-600">
+                      Extended to: {format(new Date(task.extendedDeadline), 'MMM d, yyyy HH:mm')} {typeof task.lateSubmissionPenalty !== 'undefined' ? `(Penalty: ${task.lateSubmissionPenalty || 0}%)` : ''}
+                    </div>
+                  )}
+
                   {/* Progress Bar */}
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
@@ -229,13 +237,25 @@ const TaskManager = ({ classroomId, onUpdate }) => {
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-4 pt-4 border-t flex items-center space-x-2">
                   <button
                     onClick={() => navigate(`/teacher/task/${task._id}`)}
-                    className="w-full bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2"
+                    className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2"
                   >
                     <Eye className="w-4 h-4" />
                     <span>View Details</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setExtendForTask(task);
+                      setExtendForm({
+                        extendedDeadline: task.extendedDeadline ? new Date(task.extendedDeadline).toISOString().slice(0,16) : (task.deadline ? new Date(task.deadline).toISOString().slice(0,16) : ''),
+                        lateSubmissionPenalty: (task.lateSubmissionPenalty ?? '')
+                      });
+                    }}
+                    className="px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
+                  >
+                    Extend
                   </button>
                 </div>
               </div>
@@ -251,6 +271,49 @@ const TaskManager = ({ classroomId, onUpdate }) => {
           onClose={() => setShowCreateModal(false)}
           classroomId={classroomId}
         />
+      )}
+
+      {extendForTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Extend Deadline</h3>
+              <button onClick={() => setExtendForTask(null)} className="text-gray-500">Close</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm mb-1">New Deadline</label>
+                <input type="datetime-local" value={extendForm.extendedDeadline} onChange={(e) => setExtendForm(prev => ({ ...prev, extendedDeadline: e.target.value }))} className="w-full px-3 py-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Penalty after original deadline (0-100%)</label>
+                <input type="number" min="0" max="100" value={extendForm.lateSubmissionPenalty} onChange={(e) => setExtendForm(prev => ({ ...prev, lateSubmissionPenalty: e.target.value }))} className="w-full px-3 py-2 border rounded" />
+                <p className="text-xs text-gray-500 mt-1">Applied to submissions made after the original deadline but before the extended deadline.</p>
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-end space-x-2">
+              <button onClick={() => setExtendForTask(null)} className="px-4 py-2 border rounded">Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await dispatch(extendTaskDeadline({
+                      taskId: extendForTask._id,
+                      extendedDeadline: extendForm.extendedDeadline ? new Date(extendForm.extendedDeadline).toISOString() : null,
+                      lateSubmissionPenalty: extendForm.lateSubmissionPenalty === '' ? undefined : Number(extendForm.lateSubmissionPenalty)
+                    })).unwrap();
+                    setExtendForTask(null);
+                    dispatch(fetchTasks(classroomId));
+                  } catch (e) {
+                    alert(typeof e === 'string' ? e : 'Failed to extend deadline');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

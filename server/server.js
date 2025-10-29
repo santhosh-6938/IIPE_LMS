@@ -11,8 +11,10 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-// Apply general rate limiting
-app.use(generalRateLimiter);
+// Apply general rate limiting only in production
+if ((process.env.NODE_ENV || 'development') === 'production') {
+	app.use(generalRateLimiter);
+}
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

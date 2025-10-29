@@ -90,7 +90,7 @@ router.get('/classroom/:classroomId', auth, async (req, res) => {
     }
 
     const hasAccess = req.user.role === 'teacher' 
-      ? classroom.teacher.toString() === req.user._id.toString()
+      ? (classroom.teacher.toString() === req.user._id.toString() || (classroom.coTeacherEnabled && classroom.coTeacher && classroom.coTeacher.toString() === req.user._id.toString()))
       : classroom.students.some(student => student.toString() === req.user._id.toString());
 
     if (!hasAccess) {
@@ -125,13 +125,13 @@ router.post('/upload/:classroomId', auth, authorize('teacher'), upload.single('f
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // Check if teacher owns this classroom
+    // Check if teacher has access to this classroom (main or co-teacher)
     const classroom = await Classroom.findById(classroomId);
     if (!classroom) {
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
+    if (!(classroom.teacher.toString() === req.user._id.toString() || (classroom.coTeacherEnabled && classroom.coTeacher && classroom.coTeacher.toString() === req.user._id.toString()))) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -206,8 +206,8 @@ router.put('/:contentId', auth, authorize('teacher'), async (req, res) => {
       return res.status(404).json({ message: 'Course content not found' });
     }
 
-    // Check if teacher owns this classroom
-    if (courseContent.classroom.teacher.toString() !== req.user._id.toString()) {
+    // Check if teacher has access (main or co-teacher)
+    if (!(courseContent.classroom.teacher.toString() === req.user._id.toString() || (courseContent.classroom.coTeacherEnabled && courseContent.classroom.coTeacher && courseContent.classroom.coTeacher.toString() === req.user._id.toString()))) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

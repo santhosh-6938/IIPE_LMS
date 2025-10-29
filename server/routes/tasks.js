@@ -219,6 +219,14 @@ router.get('/count', auth, async (req, res) => {
   }
 });
 
+// Helper: teacher access (main or co-teacher when enabled)
+const hasTeacherAccess = (classroomDoc, userId) => {
+  if (!classroomDoc) return false;
+  if (classroomDoc.teacher && classroomDoc.teacher.toString() === userId.toString()) return true;
+  if (classroomDoc.coTeacherEnabled && classroomDoc.coTeacher && classroomDoc.coTeacher.toString() === userId.toString()) return true;
+  return false;
+};
+
 // Get tasks (role-based filtering)
 router.get('/', auth, async (req, res) => {
   try {
@@ -226,9 +234,23 @@ router.get('/', auth, async (req, res) => {
     const { classroom } = req.query;
 
     if (req.user.role === 'teacher') {
-      query.teacher = req.user._id;
+      // Teachers (including co-teachers) see tasks for classrooms they have access to
       if (classroom) {
+        const cls = await Classroom.findById(classroom);
+        if (!cls) return res.status(404).json({ message: 'Classroom not found' });
+        if (!hasTeacherAccess(cls, req.user._id)) {
+          return res.status(403).json({ message: 'Access denied' });
+        }
         query.classroom = classroom;
+      } else {
+        // Find all classrooms where user is main teacher or co-teacher
+        const accessible = await Classroom.find({
+          $or: [
+            { teacher: req.user._id },
+            { coTeacher: req.user._id, coTeacherEnabled: true }
+          ]
+        }).select('_id');
+        query.classroom = { $in: accessible.map(c => c._id) };
       }
     } else {
       // For students, get tasks from their classrooms
@@ -267,7 +289,7 @@ router.get('/classroom/:classroomId', auth, async (req, res) => {
     }
 
     const hasAccess = req.user.role === 'teacher' 
-      ? classroom.teacher.toString() === req.user._id.toString()
+      ? hasTeacherAccess(classroom, req.user._id)
       : classroom.students.some(student => student.toString() === req.user._id.toString());
 
     if (!hasAccess) {
@@ -303,13 +325,13 @@ router.post('/', auth, authorize('teacher'), upload.array('attachments', 5), asy
       return res.status(400).json({ message: `Instructions too long. Max ${INSTR_LIMIT} words.` });
     }
 
-    // Verify teacher owns the classroom
+    // Verify teacher has access to the classroom (main or co-teacher)
     const classroomDoc = await Classroom.findById(classroom);
     if (!classroomDoc) {
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    if (classroomDoc.teacher.toString() !== req.user._id.toString()) {
+    if (!hasTeacherAccess(classroomDoc, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -525,8 +547,11 @@ router.post('/:id/submit', auth, authorize('student'), upload.array('files', 3),
       sub => sub.student.toString() === req.user._id.toString()
     );
 
-    // Check deadline
-    if (task.deadline && new Date() > task.deadline) {
+    // Check deadline (respect extendedDeadline if set)
+    const nowDate = new Date();
+    const originalDeadline = task.deadline ? new Date(task.deadline) : null;
+    const effectiveDeadline = task.extendedDeadline ? new Date(task.extendedDeadline) : originalDeadline;
+    if (effectiveDeadline && nowDate > effectiveDeadline) {
       return res.status(400).json({ message: 'Task deadline has passed' });
     }
 
@@ -605,6 +630,8 @@ router.post('/:id/submit', auth, authorize('student'), upload.array('files', 3),
 
     // Build submission object
     const now = new Date();
+    const isAfterOriginal = originalDeadline ? now > originalDeadline : false;
+    const latePenaltyApplied = isAfterOriginal ? (Number(task.lateSubmissionPenalty) || 0) : 0;
     const normalizedStatus = status === 'draft' ? 'draft' : 'submitted';
     const submission = {
       student: req.user._id,
@@ -612,7 +639,9 @@ router.post('/:id/submit', auth, authorize('student'), upload.array('files', 3),
       files,
       status: normalizedStatus,
       draftedAt: normalizedStatus === 'draft' ? now : undefined,
-      submittedAt: normalizedStatus === 'submitted' ? now : undefined
+      submittedAt: normalizedStatus === 'submitted' ? now : undefined,
+      submittedAfterOriginalDeadline: isAfterOriginal && normalizedStatus === 'submitted',
+      latePenaltyApplied
     };
 
     if (existingSubmissionIndex !== -1) {
@@ -1075,6 +1104,51 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
+// Extend deadline (teacher only)
+router.post('/:id/extend-deadline', auth, authorize('teacher'), async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const { extendedDeadline, lateSubmissionPenalty } = req.body;
+
+    const task = await Task.findById(taskId).populate('classroom');
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // Only the main teacher of the classroom can extend
+    if (task.classroom.teacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Validate inputs
+    const newDeadline = extendedDeadline ? new Date(extendedDeadline) : null;
+    if (!newDeadline || isNaN(newDeadline.getTime())) {
+      return res.status(400).json({ message: 'Invalid extended deadline' });
+    }
+
+    // Extended deadline must be after the current effective deadline
+    const currentEffective = task.extendedDeadline ? new Date(task.extendedDeadline) : (task.deadline ? new Date(task.deadline) : null);
+    if (currentEffective && newDeadline <= currentEffective) {
+      return res.status(400).json({ message: 'Extended deadline must be later than the current deadline' });
+    }
+
+    const penaltyNum = typeof lateSubmissionPenalty === 'number' ? lateSubmissionPenalty : Number(lateSubmissionPenalty);
+    if (!Number.isNaN(penaltyNum)) {
+      if (penaltyNum < 0 || penaltyNum > 100) {
+        return res.status(400).json({ message: 'Penalty must be between 0 and 100' });
+      }
+      task.lateSubmissionPenalty = penaltyNum;
+    }
+
+    task.extendedDeadline = newDeadline;
+    await task.save();
+    await task.populate('submissions.student', 'name');
+
+    return res.json({ message: 'Deadline extended', task });
+  } catch (error) {
+    console.error('Extend deadline error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all files for a task (for debugging)
 router.get('/:taskId/files', auth, async (req, res) => {
   try {
@@ -1191,8 +1265,14 @@ router.get('/:taskId/my-submission', auth, async (req, res) => {
         interactionMessages: mySubmission.interactionMessages || [],
         interactionEnabled: mySubmission.status === 'submitted'
       } : null,
-      isOverdue: task.deadline ? new Date() > new Date(task.deadline) : false,
+      // Respect extended deadline when reporting overdue
+      isOverdue: (() => {
+        const original = task.deadline ? new Date(task.deadline) : null;
+        const effective = task.extendedDeadline ? new Date(task.extendedDeadline) : original;
+        return effective ? (new Date() > effective) : false;
+      })(),
       deadline: task.deadline,
+      extendedDeadline: task.extendedDeadline,
       interactionEnabled: !!mySubmission && mySubmission.status === 'submitted'
     });
   } catch (error) {

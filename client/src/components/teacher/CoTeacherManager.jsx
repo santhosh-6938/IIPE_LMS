@@ -108,22 +108,22 @@ const CoTeacherManager = ({ classroom, onUpdate }) => {
   if (!isMainTeacher) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Co-Teacher Information</h3>
-        {classroom.coTeacherEnabled && classroom.coTeacher ? (
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Classroom Owner</h3>
+        {classroom.teacher ? (
           <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
               <UserPlus className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">{classroom.coTeacher.name}</p>
-              <p className="text-sm text-gray-600">{classroom.coTeacher.email}</p>
+              <p className="font-medium text-gray-900">{classroom.teacher.name}</p>
+              <p className="text-sm text-gray-600">{classroom.teacher.email}</p>
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                Co-Teacher
+                Main Teacher
               </span>
             </div>
           </div>
         ) : (
-          <p className="text-gray-600">No co-teacher assigned to this classroom.</p>
+          <p className="text-gray-600">Teacher information is unavailable.</p>
         )}
       </div>
     );

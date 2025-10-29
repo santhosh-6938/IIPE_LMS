@@ -90,6 +90,13 @@ const ClassroomCard = ({ classroom, tasksByClassroom = {} }) => {
         </div>
       )}
 
+      {/* Main Teacher */}
+      {classroom.teacher && (
+        <div className="mb-2 text-sm text-gray-700">
+          <span className="font-medium">Teacher:</span> {classroom.teacher.name}
+        </div>
+      )}
+
       {/* Co-Teacher Information */}
       {classroom.coTeacherEnabled && classroom.coTeacher && (
         <div className="mb-4">

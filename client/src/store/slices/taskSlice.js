@@ -242,6 +242,23 @@ export const updateTask = createAsyncThunk(
   }
 );
 
+export const extendTaskDeadline = createAsyncThunk(
+  'task/extendTaskDeadline',
+  async ({ taskId, extendedDeadline, lateSubmissionPenalty }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/tasks/${taskId}/extend-deadline`, {
+        extendedDeadline,
+        lateSubmissionPenalty
+      }, {
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
+      });
+      return response.data.task;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to extend deadline');
+    }
+  }
+);
+
 export const deleteTask = createAsyncThunk(
   'task/deleteTask',
   async (taskId, { rejectWithValue }) => {
@@ -403,6 +420,17 @@ const taskSlice = createSlice({
         }
       })
       .addCase(updateTask.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      .addCase(extendTaskDeadline.fulfilled, (state, action) => {
+        const index = state.tasks.findIndex(t => t._id === action.payload._id);
+        if (index !== -1) {
+          state.tasks[index] = action.payload;
+        } else {
+          state.tasks.push(action.payload);
+        }
+      })
+      .addCase(extendTaskDeadline.rejected, (state, action) => {
         state.error = action.payload;
       })
       .addCase(deleteTask.fulfilled, (state, action) => {

@@ -96,6 +96,11 @@ const TaskDetail = () => {
   const [groupChatInput, setGroupChatInput] = useState('');
   const [isLoadingGroupChat, setIsLoadingGroupChat] = useState(false);
   const [groupChatFiles, setGroupChatFiles] = useState([]);
+  // Compact submissions UI state
+  const [interactionStudentId, setInteractionStudentId] = useState(null);
+  const [filesModalSubmission, setFilesModalSubmission] = useState(null);
+  const [remarksModal, setRemarksModal] = useState({ open: false, studentId: null, value: '' });
+  const [submissionFilter, setSubmissionFilter] = useState('all'); // all | within-original | after-extension
 
   const task = tasks.find(t => t._id === taskId);
 
@@ -635,130 +640,84 @@ const TaskDetail = () => {
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-lg p-6 border">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Student Submissions</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Student Submissions</h2>
+                <div className="flex items-center space-x-2 text-sm">
+                  <span className="text-gray-600">Filter:</span>
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'within-original', label: 'Within Original' },
+                    { id: 'after-extension', label: 'After Extension' },
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setSubmissionFilter(f.id)}
+                      className={`px-3 py-1 rounded-full border ${submissionFilter === f.id ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               
               {task.submissions && task.submissions.length > 0 ? (
-                <div className="space-y-4">
-                  {task.submissions.map((submission, index) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{submission.student.name}</h3>
-                          <p className="text-sm text-gray-600">
-                            {submission.status === 'submitted' 
-                              ? `Submitted: ${format(new Date(submission.submittedAt), 'MMM d, yyyy HH:mm')}`
-                              : `Draft saved: ${format(new Date(submission.draftedAt), 'MMM d, yyyy HH:mm')}`
-                            }
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {submission.status === 'draft' && (
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
-                              Draft
-                            </span>
-                          )}
-                          {submission.status === 'submitted' && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                              Submitted
-                            </span>
-                          )}
-                          {submission.grade && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                              Grade: {submission.grade}%
-                            </span>
-                          )}
-                          <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {submission.content && (
-                        <div className="mb-3">
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{submission.content}</p>
-                        </div>
-                      )}
-
-                      <div className="mb-3">
-                        <label className="block text-xs text-gray-500 mb-1">Remarks</label>
-                        <WordLimitedTextarea
-                          initialValue={submission.remarks || ''}
-                          placeholder="Add remarks..."
-                          maxWords={60}
-                          onBlurSave={async (value) => {
-                            try {
-                              await dispatch(setSubmissionRemarks({ taskId, studentId: submission.student._id, remarks: value })).unwrap();
-                              toast.success('Remarks updated');
-                            } catch (err) {
-                              toast.error('Failed to update remarks');
-                            }
-                          }}
-                        />
-                      </div>
-                      
-                      {submission.files && submission.files.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 mb-2">Attached files:</p>
-                          <div className="space-y-1">
-                            {submission.files.map((file, fileIndex) => (
-                              <div key={fileIndex} className="flex items-center justify-between bg-gray-50 rounded p-2">
-                                <div className="flex items-center space-x-2">
-                                  <FileText className="w-4 h-4 text-gray-400" />
-                                  <span className="text-sm text-gray-700">{file.originalName}</span>
-                                </div>
-                                                                                                                                   <div className="flex items-center space-x-2">
-                                    <button 
-                                      onClick={() => handlePreviewSubmissionFile(file, submission._id)}
-                                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                                    >
-                                      <Eye className="w-4 h-4" />
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDownloadSubmissionFile(file, submission._id)}
-                                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                                    >
-                                      <Download className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Interaction thread */}
-                      {submission.status === 'submitted' && (
-                        <div className="mt-4 border-t pt-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium text-gray-900">Interaction</h4>
-                            <button
-                              className="text-sm text-blue-600 hover:underline"
-                              onClick={() => dispatch(fetchInteractions({ taskId, studentId: submission.student._id }))}
-                            >
-                              Refresh
-                            </button>
-                          </div>
-                          <div className="max-h-56 overflow-y-auto bg-gray-50 border rounded p-3 space-y-2">
-                            {(submission.interactionMessages || []).length === 0 ? (
-                              <p className="text-sm text-gray-500">No messages yet.</p>
-                            ) : (
-                              (submission.interactionMessages || []).map((m, i) => (
-                                <div key={i} className={`flex ${ (m.senderRole === 'teacher') ? 'justify-end' : 'justify-start' }`}>
-                                  <div className={`${ (m.senderRole === 'teacher') ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border' } rounded px-3 py-2 max-w-[75%]`}>
-                                    <p className="text-sm whitespace-pre-wrap">{m.message}</p>
-                                    <div className={`text-[10px] mt-1 ${ (m.senderRole === 'teacher') ? 'text-blue-100' : 'text-gray-400' }`}>
-                                      {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))
+                <div className="divide-y">
+                  {task.submissions
+                    .filter((submission) => {
+                      const submittedAt = submission.submittedAt ? new Date(submission.submittedAt) : null;
+                      if (!submittedAt) return submissionFilter === 'all';
+                      const original = task.deadline ? new Date(task.deadline) : null;
+                      const extended = task.extendedDeadline ? new Date(task.extendedDeadline) : null;
+                      const isWithinOriginal = original ? submittedAt <= original : true;
+                      const isAfterExtension = extended ? submittedAt > (original || new Date(0)) && submittedAt <= extended : false;
+                      if (submissionFilter === 'within-original') return isWithinOriginal;
+                      if (submissionFilter === 'after-extension') return isAfterExtension;
+                      return true;
+                    })
+                    .map((submission, index) => {
+                      const submittedAt = submission.submittedAt ? new Date(submission.submittedAt) : null;
+                      const original = task.deadline ? new Date(task.deadline) : null;
+                      const extended = task.extendedDeadline ? new Date(task.extendedDeadline) : null;
+                      const onTime = submittedAt ? (original ? submittedAt <= original : true) : false;
+                      const afterExt = submittedAt ? (!onTime && extended && submittedAt <= extended) : false;
+                      const statusLabel = onTime ? 'On Time' : (afterExt ? 'After Extension' : (submittedAt ? 'Late' : 'Draft'));
+                      const statusCls = onTime ? 'bg-green-100 text-green-800' : (afterExt ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
+                      return (
+                        <div key={index} className="py-2 flex items-center gap-3 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-gray-900 mr-2 truncate inline-block max-w-[220px]">{submission.student.name}</span>
+                            <span className="text-gray-600 mr-2">{submittedAt ? format(submittedAt, 'MMM d, yyyy HH:mm') : 'No submission'}</span>
+                            {submission.status === 'submitted' && (
+                              <span className={`px-2 py-0.5 rounded-full ${statusCls}`}>{statusLabel}</span>
                             )}
                           </div>
-                          <TeacherReplyInput taskId={taskId} studentId={submission.student._id} />
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="px-2 py-1 border rounded hover:bg-gray-50"
+                              onClick={() => setRemarksModal({ open: true, studentId: submission.student._id, value: submission.remarks || '' })}
+                            >
+                              Remarks
+                            </button>
+                            <button
+                              className="px-2 py-1 border rounded hover:bg-gray-50"
+                              onClick={() => {
+                                setInteractionStudentId(submission.student._id);
+                                dispatch(fetchInteractions({ taskId, studentId: submission.student._id }));
+                              }}
+                            >
+                              Interaction
+                            </button>
+                            <button
+                              className="px-2 py-1 border rounded hover:bg-gray-50"
+                              onClick={() => setFilesModalSubmission(submission)}
+                              disabled={!submission.files || submission.files.length === 0}
+                            >
+                              Files ({submission.files?.length || 0})
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -993,6 +952,118 @@ const TaskDetail = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderTabContent()}
       </main>
+
+      {/* Remarks Modal */}
+      {remarksModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Edit Remarks</h3>
+              <button onClick={() => setRemarksModal({ open: false, studentId: null, value: '' })} className="text-gray-500">Close</button>
+            </div>
+            <textarea
+              className="w-full border rounded px-3 py-2"
+              rows={5}
+              value={remarksModal.value}
+              onChange={e => setRemarksModal(prev => ({ ...prev, value: e.target.value }))}
+              placeholder="Add remarks..."
+            />
+            <div className="mt-3 flex items-center justify-end space-x-2">
+              <button onClick={() => setRemarksModal({ open: false, studentId: null, value: '' })} className="px-4 py-2 border rounded">Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await dispatch(setSubmissionRemarks({ taskId, studentId: remarksModal.studentId, remarks: remarksModal.value })).unwrap();
+                    toast.success('Remarks updated');
+                    setRemarksModal({ open: false, studentId: null, value: '' });
+                  } catch (err) {
+                    toast.error('Failed to update remarks');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interaction Modal */}
+      {interactionStudentId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Interaction</h3>
+              <button onClick={() => setInteractionStudentId(null)} className="text-gray-500">Close</button>
+            </div>
+            <div className="space-y-3">
+              {(() => {
+                const submission = (task.submissions || []).find(s => {
+                  const sid = typeof s.student === 'object' ? s.student?._id : s.student;
+                  return sid && sid.toString() === interactionStudentId?.toString();
+                });
+                const messages = submission?.interactionMessages || [];
+                return (
+                  <div className="border rounded p-3 bg-gray-50">
+                    <div className="max-h-80 overflow-y-auto space-y-2">
+                      {messages.length === 0 ? (
+                        <p className="text-sm text-gray-500">No messages yet.</p>
+                      ) : (
+                        messages.map((m, i) => (
+                          <div key={i} className={`flex ${ (m.senderRole === 'teacher') ? 'justify-end' : 'justify-start' }`}>
+                            <div className={`${ (m.senderRole === 'teacher') ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border' } rounded px-3 py-2 max-w-[75%]`}>
+                              <p className="text-sm whitespace-pre-wrap">{m.message}</p>
+                              <div className={`text-[10px] mt-1 ${ (m.senderRole === 'teacher') ? 'text-blue-100' : 'text-gray-400' }`}>
+                                {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <TeacherReplyInput taskId={taskId} studentId={interactionStudentId} />
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Files Modal */}
+      {filesModalSubmission && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Attached Files</h3>
+              <button onClick={() => setFilesModalSubmission(null)} className="text-gray-500">Close</button>
+            </div>
+            {(!filesModalSubmission.files || filesModalSubmission.files.length === 0) ? (
+              <p className="text-sm text-gray-500">No files attached.</p>
+            ) : (
+              <div className="space-y-2">
+                {filesModalSubmission.files.map((file, i) => (
+                  <div key={i} className="flex items-center justify-between bg-gray-50 rounded p-2">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700">{file.originalName}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => handlePreviewSubmissionFile(file, filesModalSubmission._id)} className="p-1 text-gray-400 hover:text-blue-600">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDownloadSubmissionFile(file, filesModalSubmission._id)} className="p-1 text-gray-400 hover:text-blue-600">
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {isEditing && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

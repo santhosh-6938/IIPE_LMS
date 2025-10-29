@@ -278,9 +278,11 @@ const StudentTaskDetail = () => {
     userId: user?._id
   });
   const isOverdue = useMemo(() => {
-    if (!task?.deadline) return false;
+    if (!task) return false;
     try {
-      return new Date() > new Date(task.deadline);
+      const original = task.deadline ? new Date(task.deadline) : null;
+      const effective = task.extendedDeadline ? new Date(task.extendedDeadline) : original;
+      return effective ? new Date() > effective : false;
     } catch {
       return false;
     }

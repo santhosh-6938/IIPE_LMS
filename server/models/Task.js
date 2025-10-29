@@ -96,6 +96,19 @@ const taskSchema = new mongoose.Schema({
   deadline: {
     type: Date
   },
+  // Optional extended deadline window set by the teacher
+  extendedDeadline: {
+    type: Date,
+    default: null
+  },
+  // Optional penalty percentage applied to submissions after original deadline
+  // but before or on the extended deadline (0-100)
+  lateSubmissionPenalty: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
   maxSubmissions: {
     type: Number,
     default: 1
