@@ -13,7 +13,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['classroom', 'task', 'deadline', 'grade', 'general'],
+    enum: ['classroom', 'task', 'deadline', 'grade', 'general', 'co_teacher_invitation', 'co_teacher_accepted', 'co_teacher_declined'],
     required: true
   },
   title: {
@@ -32,6 +32,16 @@ const notificationSchema = new mongoose.Schema({
     taskId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Task'
+    },
+    coTeacherInvitationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'CoTeacher'
+    },
+    invitationToken: {
+      type: String
+    },
+    declineReason: {
+      type: String
     }
   },
   read: {

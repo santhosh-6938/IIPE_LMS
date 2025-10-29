@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { deleteClassroom, archiveClassroom, unarchiveClassroom } from '../../store/slices/classroomSlice';
-import { Users, Calendar, Settings, Trash2, ClipboardList } from 'lucide-react';
+import { Users, Calendar, Settings, Trash2, ClipboardList, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ClassroomCard = ({ classroom, tasksByClassroom = {} }) => {
@@ -87,6 +87,22 @@ const ClassroomCard = ({ classroom, tasksByClassroom = {} }) => {
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
             📚 {classroom.subject}
           </span>
+        </div>
+      )}
+
+      {/* Co-Teacher Information */}
+      {classroom.coTeacherEnabled && classroom.coTeacher && (
+        <div className="mb-4">
+          <div className="flex items-center space-x-2 p-2 bg-green-50 rounded-lg">
+            <UserPlus className="w-4 h-4 text-green-600" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">Co-Teacher</p>
+              <p className="text-xs text-gray-600">{classroom.coTeacher.name}</p>
+            </div>
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              Active
+            </span>
+          </div>
         </div>
       )}
 

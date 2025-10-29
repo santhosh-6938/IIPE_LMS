@@ -59,6 +59,29 @@ const uploadCoverImage = multer({
 
 const router = express.Router();
 
+// Helper function to check if user has teacher access to classroom
+const hasTeacherAccess = (classroom, userId) => {
+  return classroom.teacher.toString() === userId.toString() ||
+         (classroom.coTeacherEnabled && 
+          classroom.coTeacher && 
+          classroom.coTeacher.toString() === userId.toString());
+};
+
+// Helper function to check if user is main teacher (NOT co-teacher)
+const isMainTeacher = (classroom, userId) => {
+  return classroom.teacher.toString() === userId.toString();
+};
+
+// Helper function to log classroom activity with teacher role identification
+const logClassroomActivity = async (req, action, classroomId, metadata = {}) => {
+  try {
+    const { logActivity } = require('../middleware/activity');
+    await logActivity(req, action, 'classroom', classroomId, metadata);
+  } catch (error) {
+    console.error('Failed to log classroom activity:', error);
+  }
+};
+
 // Get classrooms (role-based)
 router.get('/', auth, async (req, res) => {
   try {
@@ -67,17 +90,26 @@ router.get('/', auth, async (req, res) => {
     const includeArchived = req.query && (req.query.includeArchived === 'true');
 
     if (req.user.role === 'teacher') {
-      const baseQuery = { teacher: req.user._id };
+      // Get classrooms where user is main teacher OR co-teacher
+      const baseQuery = {
+        $or: [
+          { teacher: req.user._id },
+          { coTeacher: req.user._id, coTeacherEnabled: true }
+        ]
+      };
       if (!includeArchived) baseQuery.isArchived = false;
+      
       classrooms = await Classroom.find(baseQuery)
-        .populate('teacher', 'name email')
+        .populate('teacher', 'name email _id')
+        .populate('coTeacher', 'name email _id')
         .populate('students', 'name email rollNumber createdAt')
         .sort({ createdAt: -1 });
     } else {
       const baseQuery = { students: req.user._id };
       if (!includeArchived) baseQuery.isArchived = false;
       classrooms = await Classroom.find(baseQuery)
-        .populate('teacher', 'name email')
+        .populate('teacher', 'name email _id')
+        .populate('coTeacher', 'name email _id')
         .populate('students', 'name email rollNumber createdAt')
         .sort({ createdAt: -1 });
     }
@@ -174,7 +206,7 @@ router.post('/', auth, authorize('teacher'), async (req, res) => {
 
     await classroom.save();
     
-    await classroom.populate('teacher', 'name email');
+    await classroom.populate('teacher', 'name email _id');
 
     res.status(201).json(classroom);
   } catch (error) {
@@ -194,7 +226,8 @@ router.post('/', auth, authorize('teacher'), async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const classroom = await Classroom.findById(req.params.id)
-      .populate('teacher', 'name email')
+      .populate('teacher', 'name email _id')
+      .populate('coTeacher', 'name email _id')
       .populate('students', 'name email rollNumber createdAt');
 
     if (!classroom) {
@@ -202,9 +235,17 @@ router.get('/:id', auth, async (req, res) => {
     }
 
     // Check access permissions
-    const hasAccess = req.user.role === 'teacher' 
-      ? classroom.teacher._id.toString() === req.user._id.toString()
-      : classroom.students.some(student => student._id.toString() === req.user._id.toString());
+    let hasAccess = false;
+    if (req.user.role === 'teacher') {
+      // Check if user is main teacher or co-teacher
+      hasAccess = classroom.teacher._id.toString() === req.user._id.toString() ||
+                  (classroom.coTeacherEnabled && 
+                   classroom.coTeacher && 
+                   classroom.coTeacher._id.toString() === req.user._id.toString());
+    } else {
+      // Student access
+      hasAccess = classroom.students.some(student => student._id.toString() === req.user._id.toString());
+    }
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
@@ -233,8 +274,8 @@ router.put('/:id', auth, authorize('teacher'), async (req, res) => {
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    // Check if teacher owns this classroom
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
+    // Check if user has teacher access to this classroom (main teacher or co-teacher)
+    if (!hasTeacherAccess(classroom, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -295,7 +336,7 @@ router.put('/:id', auth, authorize('teacher'), async (req, res) => {
     // Prevent edits if archived (except description/metadata, we can still allow basic edits)
     // For safety, only metadata edits allowed already above. Proceed to save.
     await classroom.save();
-    await classroom.populate('teacher', 'name email');
+    await classroom.populate('teacher', 'name email _id');
     await classroom.populate('students', 'name email rollNumber createdAt');
 
     res.json(classroom);
@@ -313,8 +354,8 @@ router.delete('/:id', auth, authorize('teacher'), async (req, res) => {
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    // Check if teacher owns this classroom
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
+    // Check if user has teacher access to this classroom (main teacher or co-teacher)
+    if (!hasTeacherAccess(classroom, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -333,7 +374,7 @@ router.post('/:id/archive', auth, authorize('teacher'), async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body || {};
     const classroom = await Classroom.findById(id)
-      .populate('teacher', 'name email')
+      .populate('teacher', 'name email _id')
       .populate('students', 'name email rollNumber createdAt');
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
     if (classroom.teacher._id.toString() !== req.user._id.toString()) {
@@ -359,7 +400,7 @@ router.post('/:id/unarchive', auth, authorize('teacher'), async (req, res) => {
   try {
     const { id } = req.params;
     const classroom = await Classroom.findById(id)
-      .populate('teacher', 'name email')
+      .populate('teacher', 'name email _id')
       .populate('students', 'name email rollNumber createdAt');
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
     if (classroom.teacher._id.toString() !== req.user._id.toString()) {
@@ -403,7 +444,7 @@ router.post('/:classroomId/students', auth, authorize('teacher'), async (req, re
     const { studentIds } = req.body;
 
     const classroom = await Classroom.findById(classroomId)
-      .populate('teacher', 'name email')
+      .populate('teacher', 'name email _id')
       .populate('students', 'name email rollNumber createdAt');
 
     if (!classroom) {
@@ -496,7 +537,7 @@ router.delete('/:classroomId/students/:studentId', auth, authorize('teacher'), a
     const { classroomId, studentId } = req.params;
 
     const classroom = await Classroom.findById(classroomId)
-      .populate('teacher', 'name email')
+      .populate('teacher', 'name email _id')
       .populate('students', 'name email');
 
     if (!classroom) {
@@ -566,7 +607,7 @@ router.post('/:classroomId/students/bulk-import', auth, authorize('teacher'), (r
       }
 
       const classroom = await Classroom.findById(classroomId)
-        .populate('teacher', 'name email')
+        .populate('teacher', 'name email _id')
         .populate('students', 'name email rollNumber');
 
       if (!classroom) {
@@ -754,8 +795,8 @@ router.post('/:id/cover-image', auth, authorize('teacher'), uploadCoverImage.sin
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    // Check if teacher owns this classroom
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
+    // Check if user has teacher access to this classroom (main teacher or co-teacher)
+    if (!hasTeacherAccess(classroom, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -763,7 +804,7 @@ router.post('/:id/cover-image', auth, authorize('teacher'), uploadCoverImage.sin
     classroom.coverImage = req.file.filename;
     await classroom.save();
 
-    await classroom.populate('teacher', 'name email');
+    await classroom.populate('teacher', 'name email _id');
     await classroom.populate('students', 'name email rollNumber createdAt');
 
     res.json({

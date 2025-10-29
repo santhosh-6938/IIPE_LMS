@@ -418,6 +418,23 @@ router.post('/', auth, authorize('teacher'), upload.array('attachments', 5), asy
       }
     }
 
+    // Notify both teachers if co-teaching is enabled
+    if (classroomDoc.coTeacherEnabled && classroomDoc.coTeacher) {
+      try {
+        const coTeacherService = require('../services/coTeacherService');
+        await coTeacherService.notifyBothTeachers(
+          classroom,
+          req.user._id,
+          'task',
+          'New Task Created',
+          `${req.user.name} created a new task "${title}" in ${classroomDoc.name}`,
+          { taskId: task._id }
+        );
+      } catch (notifyError) {
+        console.error('Failed to notify both teachers:', notifyError);
+      }
+    }
+
     res.status(201).json(task);
   } catch (error) {
     console.error('Create task error:', error);

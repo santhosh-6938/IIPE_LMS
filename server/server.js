@@ -26,6 +26,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/email-verification', require('./routes/emailVerification'));
 app.use('/api/session-management', require('./routes/sessionManagement'));
 app.use('/api/classrooms', require('./routes/classrooms'));
+app.use('/api/co-teacher', require('./routes/coTeacher'));
 app.use('/api/programs', require('./routes/programs'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/tasks', require('./routes/tasks'));

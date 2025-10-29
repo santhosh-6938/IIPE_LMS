@@ -7,7 +7,8 @@ import StudentManager from './StudentManager';
 import TaskManager from './TaskManager';
 import AttendanceManager from './AttendanceManager';
 import ClassroomSettings from './ClassroomSettings';
-import { ArrowLeft, Users, FileText, Settings, BookOpen, Calendar, Clock, CheckSquare } from 'lucide-react';
+import CoTeacherManager from './CoTeacherManager';
+import { ArrowLeft, Users, FileText, Settings, BookOpen, Calendar, Clock, CheckSquare, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import axios from 'axios';
 
@@ -125,6 +126,7 @@ const ClassroomDetail = () => {
     { id: 'content', label: 'Course Content', icon: FileText },
     { id: 'students', label: 'Students', icon: Users },
     { id: 'attendance', label: 'Attendance', icon: CheckSquare },
+    { id: 'co-teacher', label: 'Co-Teacher', icon: UserPlus },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -170,6 +172,18 @@ const ClassroomDetail = () => {
                       Students can be added to this classroom by the teacher
                     </p>
                   </div>
+                  
+                  {/* Co-Teacher Information */}
+                  {classroom.coTeacherEnabled && classroom.coTeacher && (
+                    <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <UserPlus className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-gray-900">Co-Teacher</span>
+                      </div>
+                      <p className="text-sm text-gray-700">{classroom.coTeacher.name}</p>
+                      <p className="text-xs text-gray-600">{classroom.coTeacher.email}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -231,6 +245,8 @@ const ClassroomDetail = () => {
         return <StudentManager classroom={classroom} onUpdate={handleClassroomUpdate} />;
       case 'attendance':
         return <AttendanceManager />;
+      case 'co-teacher':
+        return <CoTeacherManager classroom={classroom} onUpdate={handleClassroomUpdate} />;
       case 'settings':
         return <ClassroomSettings classroom={classroom} onUpdate={handleClassroomUpdate} />;
       default:

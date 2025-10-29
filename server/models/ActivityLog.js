@@ -7,6 +7,13 @@ const activityLogSchema = new mongoose.Schema({
   resourceType: { type: String, default: '' },
   resourceId: { type: String, default: '' },
   metadata: { type: Object, default: {} },
+  // Enhanced tracking for co-teacher functionality
+  classroomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom', default: null },
+  teacherRole: { 
+    type: String, 
+    enum: ['main_teacher', 'co_teacher'], 
+    default: null 
+  },
   ip: { type: String, default: '' },
   userAgent: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
@@ -14,5 +21,8 @@ const activityLogSchema = new mongoose.Schema({
 
 activityLogSchema.index({ user: 1, createdAt: -1 });
 activityLogSchema.index({ action: 1 });
+activityLogSchema.index({ classroomId: 1, createdAt: -1 });
+activityLogSchema.index({ teacherRole: 1 });
+activityLogSchema.index({ classroomId: 1, teacherRole: 1 });
 
 module.exports = mongoose.model('ActivityLog', activityLogSchema);

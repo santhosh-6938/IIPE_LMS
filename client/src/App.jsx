@@ -15,6 +15,7 @@ import StudentDashboard from './components/student/StudentDashboard';
 import StudentProfile from './components/student/StudentProfile';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClassroomDetail from './components/teacher/ClassroomDetail';
+import CoTeacherInvitationPage from './components/teacher/CoTeacherInvitationPage';
 import StudentClassroomDetail from './components/student/StudentClassroomDetail';
 import TaskDetail from './components/teacher/TaskDetail';
 import CodeCompiler from './components/compiler/CodeCompiler';
@@ -250,6 +251,20 @@ function App() {
                   </div>
                 </div>
               </PrivateRoute>
+            } 
+          />
+          
+          {/* Co-Teacher Invitation Route */}
+          <Route 
+            path="/co-teacher/invitation/:token" 
+            element={
+              shouldRedirectToPasswordChange ? (
+                <Navigate to="/first-login-password-change" />
+              ) : (
+                <PrivateRoute requiredRole="teacher">
+                  <CoTeacherInvitationPage />
+                </PrivateRoute>
+              )
             } 
           />
           

@@ -1,12 +1,12 @@
 const express = require('express');
-const { auth, requireAdmin } = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 const { createOrUpdateTemplate, getAllTemplates, deleteTemplate, renderEmailTemplate } = require('../services/emailTemplateService');
 
 const router = express.Router();
 
 // All routes require authentication and admin access
 router.use(auth);
-router.use(requireAdmin);
+router.use(authorize('admin'));
 
 // Get all email templates
 router.get('/', async (req, res) => {

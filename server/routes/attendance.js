@@ -9,6 +9,19 @@ const router = express.Router();
 // Apply auth middleware to all routes
 router.use(auth);
 
+// Helper function to check if user is the main teacher
+const isMainTeacher = (classroom, userId) => {
+  return classroom.teacher.toString() === userId.toString();
+};
+
+// Helper function to check if user has teacher access (main teacher OR co-teacher)
+const hasTeacherAccess = (classroom, userId) => {
+  return classroom.teacher.toString() === userId.toString() ||
+         (classroom.coTeacherEnabled && 
+          classroom.coTeacher && 
+          classroom.coTeacher.toString() === userId.toString());
+};
+
 // Get attendance for a specific classroom and date
 router.get('/classroom/:classroomId', async (req, res) => {
   try {
@@ -24,9 +37,11 @@ router.get('/classroom/:classroomId', async (req, res) => {
     return res.status(400).json({ message: 'Attendance is not available for archived classrooms' });
   }
 
-    // Only teacher of the classroom can access attendance
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can access attendance
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
     }
 
     // Normalize date in local timezone to ensure today's record is found/created
@@ -123,8 +138,11 @@ router.put('/classroom/:classroomId/student/:studentId', async (req, res) => {
     return res.status(400).json({ message: 'Cannot update attendance for archived classrooms' });
   }
 
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can update attendance
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
     }
 
     const targetDate = date ? new Date(date) : new Date();
@@ -189,7 +207,12 @@ router.post('/classroom/:classroomId/freeze', async (req, res) => {
     const classroom = await Classroom.findById(classroomId);
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
   if (classroom.isArchived) return res.status(400).json({ message: 'Cannot freeze attendance for archived classrooms' });
-    if (classroom.teacher.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can freeze attendance
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
+    }
 
     const targetDate = date ? new Date(date) : new Date();
     targetDate.setHours(0, 0, 0, 0);
@@ -225,7 +248,12 @@ router.post('/classroom/:classroomId/unfreeze', async (req, res) => {
     const classroom = await Classroom.findById(classroomId);
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
   if (classroom.isArchived) return res.status(400).json({ message: 'Cannot unfreeze attendance for archived classrooms' });
-    if (classroom.teacher.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can unfreeze attendance
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
+    }
 
     const targetDate = date ? new Date(date) : new Date();
     targetDate.setHours(0, 0, 0, 0);
@@ -264,8 +292,11 @@ router.get('/classroom/:classroomId/history', async (req, res) => {
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can view attendance history
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
     }
 
     const query = { classroom: classroomId };
@@ -314,8 +345,11 @@ router.get('/classroom/:classroomId/student/:studentId/summary', async (req, res
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can view student attendance summary
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
     }
 
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30));
@@ -352,8 +386,11 @@ router.get('/classroom/:classroomId/statistics', async (req, res) => {
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can view attendance statistics
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
     }
 
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30));
@@ -408,8 +445,11 @@ router.get('/classroom/:classroomId/download', async (req, res) => {
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    if (classroom.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Both main teacher and co-teacher can download attendance reports
+    if (!hasTeacherAccess(classroom, req.user._id)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only teachers can manage attendance.' 
+      });
     }
 
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 7));

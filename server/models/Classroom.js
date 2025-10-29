@@ -93,6 +93,16 @@ const classroomSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // Co-teacher functionality
+  coTeacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  coTeacherEnabled: {
+    type: Boolean,
+    default: false
+  },
   students: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -160,6 +170,8 @@ classroomSchema.pre('save', function(next) {
 
 // Index for better query performance
 classroomSchema.index({ teacher: 1 });
+classroomSchema.index({ coTeacher: 1 });
+classroomSchema.index({ coTeacherEnabled: 1 });
 classroomSchema.index({ students: 1 });
 classroomSchema.index({ program: 1, branch: 1, academicYear: 1 });
 classroomSchema.index({ courseId: 1 }); // Index for courseId uniqueness and queries
