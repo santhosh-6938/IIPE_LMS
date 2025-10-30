@@ -322,7 +322,7 @@ const getTaskMarks = async (req, res) => {
   try {
     const { taskId } = req.params;
 
-    const taskMarks = await TaskMarks.findOne({ task: taskId, teacher: req.user._id })
+    const taskMarks = await TaskMarks.findOne({ task: taskId })
       .populate('task', 'title')
       .populate('marks.student', 'name email rollNumber');
 
@@ -336,21 +336,29 @@ const getTaskMarks = async (req, res) => {
 // Create or update task marks
 const updateTaskMarks = async (req, res) => {
   try {
-    const { taskId } = req.params;
-    const { marksData } = req.body;
+  const { taskId } = req.params;
+  const { marksData, maxMarks } = req.body;
 
-    // Verify task exists and teacher owns it
+    // Verify task exists and teacher or co-teacher owns it
     const task = await Task.findById(taskId).populate('classroom');
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    if (task.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Allow access if requester is task teacher OR classroom co-teacher (when enabled)
+    if (
+      task.teacher.toString() !== req.user._id.toString()
+    ) {
+      const Classroom = require('../models/Classroom');
+      const classroomDoc = await Classroom.findById(task.classroom._id || task.classroom);
+      const isCoTeacher = classroomDoc && classroomDoc.coTeacherEnabled && classroomDoc.coTeacher && classroomDoc.coTeacher.toString() === req.user._id.toString();
+      if (!isCoTeacher) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
     }
 
-    // Find or create task marks
-    let taskMarks = await TaskMarks.findOne({ task: taskId, teacher: req.user._id });
+    // Find or create task marks (single document per task)
+    let taskMarks = await TaskMarks.findOne({ task: taskId });
 
     if (!taskMarks) {
       taskMarks = new TaskMarks({
@@ -362,13 +370,22 @@ const updateTaskMarks = async (req, res) => {
     }
 
     // Validate marks data
-    const validatedMarks = marksData.map(mark => ({
-      student: mark.student._id || mark.student, // Handle both object and ID
-      submission: mark.submission,
-      marks: Math.max(0, Math.min(100, parseInt(mark.marks) || 0)),
-      feedback: mark.feedback || '',
-      gradedAt: new Date()
-    }));
+    const parsedMax = parseInt(maxMarks);
+    const effectiveMax = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : null;
+    const validatedMarks = marksData.map(mark => {
+      const numeric = parseInt(mark.marks);
+      let safeMarks = Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+      if (effectiveMax !== null) {
+        safeMarks = Math.min(effectiveMax, safeMarks);
+      }
+      return {
+        student: mark.student._id || mark.student, // Handle both object and ID
+        submission: mark.submission,
+        marks: safeMarks,
+        feedback: mark.feedback || '',
+        gradedAt: new Date()
+      };
+    });
 
     // Check if marks already exist and update status to draft if needed
     if (taskMarks.status === 'published') {
@@ -378,6 +395,9 @@ const updateTaskMarks = async (req, res) => {
     console.log('Updating task marks with data:', JSON.stringify(validatedMarks, null, 2));
 
     taskMarks.marks = validatedMarks;
+    if (effectiveMax !== null) {
+      taskMarks.maxMarks = effectiveMax;
+    }
     await taskMarks.save();
     await taskMarks.populate('marks.student', 'name email rollNumber');
 
@@ -393,7 +413,7 @@ const publishTaskMarks = async (req, res) => {
   try {
     const { taskId } = req.params;
 
-    const taskMarks = await TaskMarks.findOne({ task: taskId, teacher: req.user._id });
+    const taskMarks = await TaskMarks.findOne({ task: taskId });
     if (!taskMarks) {
       return res.status(404).json({ message: 'Task marks not found' });
     }

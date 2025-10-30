@@ -20,6 +20,7 @@ const ClassroomDetail = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { classrooms } = useSelector(state => state.classroom);
+  const user = useSelector((state) => state.user?.user || state.auth?.user);
   const [activeTab, setActiveTab] = useState('overview');
   const [courseContentCount, setCourseContentCount] = useState(0);
   const [taskCount, setTaskCount] = useState(0);
@@ -173,16 +174,24 @@ const ClassroomDetail = () => {
                     </p>
                   </div>
                   
-                  {/* Co-Teacher Information */}
-                  {classroom.coTeacherEnabled && classroom.coTeacher && (
-                    <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <UserPlus className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-medium text-gray-900">Co-Teacher</span>
-                      </div>
-                      <p className="text-sm text-gray-700">{classroom.coTeacher.name}</p>
-                      <p className="text-xs text-gray-600">{classroom.coTeacher.email}</p>
-                    </div>
+                  {/* Teacher/Co-Teacher Information */}
+                  {classroom.coTeacherEnabled && (
+                    (() => {
+                      const isMainTeacher = user?.email === classroom.teacher?.email;
+                      const person = isMainTeacher ? classroom.coTeacher : classroom.teacher;
+                      if (!person) return null;
+                      const label = isMainTeacher ? 'Co-Teacher' : 'Main Teacher';
+                      return (
+                        <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <UserPlus className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-gray-900">{label}</span>
+                          </div>
+                          <p className="text-sm text-gray-700">{person.name}</p>
+                          <p className="text-xs text-gray-600">{person.email}</p>
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               </div>

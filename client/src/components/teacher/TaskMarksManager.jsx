@@ -93,24 +93,42 @@ const TaskMarksManager = ({ taskId, onClose }) => {
             <p className="text-gray-600">{selectedTask.description}</p>
           </div>
           <div className="flex items-center space-x-3">
-            {currentTaskMarks?.status === 'draft' && (
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <Edit className="w-4 h-4" />
-                <span>Edit Marks</span>
-              </button>
+            {/* Show NOTHING if published except badge. Only show buttons for draft/incomplete. */}
+            {currentTaskMarks?.status === 'published' ? null : (
+              <>
+               {/* Assign Marks only if no marks and not published */}
+                {(!currentTaskMarks || (currentTaskMarks?.marks?.length || 0) === 0) && (
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>Assign Marks</span>
+                  </button>
+                )}
+                {/* Edit/Publish only if marks exist and draft */}
+                {currentTaskMarks?.status === 'draft' && (currentTaskMarks?.marks?.length || 0) > 0 && (
+                  <>
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Edit Marks</span>
+                  </button>
+                  <button
+                    onClick={handlePublish}
+                    disabled={!currentTaskMarks?.marks || currentTaskMarks.marks.length === 0}
+                    className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 text-white ${(!currentTaskMarks?.marks || currentTaskMarks.marks.length === 0) ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Publish Marks</span>
+                  </button>
+                  </>
+                )}
+              </>
             )}
-            {currentTaskMarks?.status === 'draft' && (
-              <button
-                onClick={handlePublish}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-              >
-                <CheckCircle className="w-4 h-4" />
-                <span>Publish Marks</span>
-              </button>
-            )}
+            {/* Always show Published badge if published */}
             {currentTaskMarks?.status === 'published' && (
               <div className="text-sm text-gray-600">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -118,15 +136,6 @@ const TaskMarksManager = ({ taskId, onClose }) => {
                   Published
                 </span>
               </div>
-            )}
-            {!currentTaskMarks && (
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <Award className="w-4 h-4" />
-                <span>Assign Marks</span>
-              </button>
             )}
             <button
               onClick={onClose}
@@ -176,6 +185,34 @@ const TaskMarksManager = ({ taskId, onClose }) => {
             </div>
           )}
 
+          {/* Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {(() => {
+              const denom = currentTaskMarks?.maxMarks || 100;
+              const graded = currentTaskMarks?.marks?.length || 0;
+              const totalStudents = selectedTask.submissions?.length || 0;
+              const average = graded > 0
+                ? Math.round((currentTaskMarks.marks.reduce((sum, m) => sum + (m.marks || 0), 0) / graded) * 100) / 100
+                : 0;
+              return (
+                <>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-500">Graded</div>
+                    <div className="text-xl font-semibold text-gray-900">{graded} / {totalStudents}</div>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-500">Average</div>
+                    <div className="text-xl font-semibold text-gray-900">{average}{denom ? ` / ${denom}` : ''}</div>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-500">Out of</div>
+                    <div className="text-xl font-semibold text-gray-900">{denom}</div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
           <div className="space-y-3">
             {currentTaskMarks.marks?.map((mark, index) => (
               <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -187,7 +224,7 @@ const TaskMarksManager = ({ taskId, onClose }) => {
                   )}
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">{mark.marks}/100</div>
+                  <div className="text-2xl font-bold text-blue-600">{mark.marks}/{currentTaskMarks?.maxMarks || 100}</div>
                   <div className="text-xs text-gray-500">
                     Graded: {new Date(mark.gradedAt).toLocaleDateString()}
                   </div>
@@ -230,41 +267,69 @@ const EditTaskMarksModal = ({ isOpen, onClose, task, existingMarks }) => {
   const dispatch = useDispatch();
   const [marksData, setMarksData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [maxMarks, setMaxMarks] = useState(100);
+  const [initialized, setInitialized] = useState(false);
 
+  // Reset initialization flag on open
   useEffect(() => {
-    if (task?.submissions) {
-      // Initialize marks data from submissions
+    if (isOpen) {
+      setInitialized(false);
+    }
+  }, [isOpen]);
+
+  // Initialize marks only once per open, avoid overwriting while typing
+  useEffect(() => {
+    if (!initialized && task?.submissions) {
       const initialMarks = task.submissions
         .filter(sub => sub.status === 'submitted')
         .map(submission => {
           const existingMark = existingMarks?.marks?.find(
-            mark => mark.student.toString() === submission.student._id.toString()
+            mark => (mark.student._id || mark.student).toString() === submission.student._id.toString()
           );
-          
+          const initialMarksValue = typeof existingMark?.marks === 'number' ? existingMark.marks : '';
           return {
             student: submission.student,
             submission: submission._id,
-            marks: existingMark?.marks || 0,
+            submittedAt: submission.submittedAt,
+            marksInput: initialMarksValue === '' ? '' : String(initialMarksValue),
             feedback: existingMark?.feedback || ''
           };
         });
       setMarksData(initialMarks);
+      setInitialized(true);
     }
-  }, [task, existingMarks]);
+  }, [initialized, task, existingMarks]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (existingMarks && existingMarks.status === 'published') {
+      toast.error('Marks have been published. You cannot update marks after publication.');
+      return;
+    }
+    if (!marksData || marksData.length === 0) {
+      toast.error('No students or marks to update.');
+      return;
+    }
     setIsLoading(true);
     try {
       // Transform data to match backend expectations
-      const transformedMarksData = marksData.map(mark => ({
-        student: mark.student._id || mark.student,
-        submission: mark.submission,
-        marks: mark.marks,
-        feedback: mark.feedback
-      }));
-      
-      await dispatch(updateTaskMarks({ taskId: task._id, marksData: transformedMarksData })).unwrap();
+      const parsedMax = parseInt(maxMarks, 10);
+      const effectiveMax = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : undefined;
+      const transformedMarksData = marksData.map(mark => {
+        const numeric = parseInt(mark.marksInput, 10);
+        let safeMarks = Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+        if (Number.isFinite(effectiveMax)) {
+          safeMarks = Math.min(effectiveMax, safeMarks);
+        }
+        return {
+          student: mark.student._id || mark.student,
+          submission: mark.submission,
+          marks: safeMarks,
+          feedback: mark.feedback
+        };
+      });
+
+      await dispatch(updateTaskMarks({ taskId: task._id, marksData: transformedMarksData, maxMarks: effectiveMax })).unwrap();
       toast.success('Marks updated successfully!');
       onClose();
       dispatch(fetchTaskMarks(task._id));
@@ -293,6 +358,19 @@ const EditTaskMarksModal = ({ isOpen, onClose, task, existingMarks }) => {
             <p className="text-sm text-gray-600">
               {marksData.length} student{marksData.length !== 1 ? 's' : ''} submitted
             </p>
+            <div className="mt-3 flex items-center space-x-3">
+              <label className="text-sm text-gray-700">Out of</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={maxMarks}
+                onChange={(e) => {
+                  const digitsOnly = (e.target.value || '').replace(/[^\d]/g, '');
+                  setMaxMarks(digitsOnly);
+                }}
+                className="w-20 border border-gray-300 rounded-md px-2 py-1 text-center"
+              />
+            </div>
           </div>
 
           <div>
@@ -304,23 +382,54 @@ const EditTaskMarksModal = ({ isOpen, onClose, task, existingMarks }) => {
                     <div className="flex-1">
                       <h5 className="font-medium text-gray-900">{mark.student.name}</h5>
                       <p className="text-sm text-gray-600">{mark.student.email}</p>
+                      {(() => {
+                        const deadline = task.deadline ? new Date(task.deadline) : null;
+                        const extended = task.extendedDeadline ? new Date(task.extendedDeadline) : null;
+                        const submitted = mark.submittedAt ? new Date(mark.submittedAt) : null;
+                        if (!submitted || !deadline) return null;
+                        let label = 'On time';
+                        let classes = 'bg-green-100 text-green-800';
+                        if (submitted > deadline) {
+                          if (extended && submitted <= extended) {
+                            label = 'Late (within extension)';
+                            classes = 'bg-yellow-100 text-yellow-800';
+                          } else {
+                            label = 'Late (after extension)';
+                            classes = 'bg-red-100 text-red-800';
+                          }
+                        }
+                        return (
+                          <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded ${classes}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center space-x-2">
                       <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={mark.marks || ''}
+                        type="text"
+                        inputMode="numeric"
+                        value={mark.marksInput}
                         onChange={(e) => {
-                          const newMarksData = [...marksData];
-                          const value = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
-                          newMarksData[index].marks = value;
-                          setMarksData(newMarksData);
+                          const digitsOnly = (e.target.value || '').replace(/[^\d]/g, '');
+                          const max = parseInt(maxMarks, 10);
+                          let nextValue = digitsOnly;
+                          if (Number.isFinite(max) && max > 0) {
+                            const asNum = parseInt(digitsOnly, 10);
+                            if (Number.isFinite(asNum) && asNum > max) {
+                              nextValue = String(max);
+                            }
+                          }
+                          setMarksData((prev) => {
+                            const next = [...prev];
+                            next[index] = { ...next[index], marksInput: nextValue };
+                            return next;
+                          });
                         }}
                         className="w-20 border border-gray-300 rounded-md px-2 py-1 text-center"
                         placeholder="0"
                       />
-                      <span className="text-sm text-gray-600">/ 100</span>
+                      <span className="text-sm text-gray-600">/ {maxMarks || 100}</span>
                     </div>
                   </div>
                   <div>
@@ -328,9 +437,12 @@ const EditTaskMarksModal = ({ isOpen, onClose, task, existingMarks }) => {
                     <textarea
                       value={mark.feedback}
                       onChange={(e) => {
-                        const newMarksData = [...marksData];
-                        newMarksData[index].feedback = e.target.value;
-                        setMarksData(newMarksData);
+                        const value = e.target.value;
+                        setMarksData((prev) => {
+                          const next = [...prev];
+                          next[index] = { ...next[index], feedback: value };
+                          return next;
+                        });
                       }}
                       placeholder="Add feedback for the student..."
                       className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"

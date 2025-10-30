@@ -302,7 +302,7 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6">
+      <div className="bg-white rounded-2xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
@@ -318,24 +318,40 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="p-2 text-sm rounded bg-red-50 text-red-700 border border-red-200">{error}</div>
           )}
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              Classroom Name *
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., Mathematics Grade 10"
-              required
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                Classroom Name *
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., Mathematics Grade 10"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+              <input
+                type="text"
+                id="subject"
+                name="subject"
+                value={formData.subject}
+                onChange={handleChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  formData.subject ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                }`}
+                placeholder="e.g., Mathematics"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -520,27 +536,10 @@ const CreateClassroomModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          <div>
-            <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-              Subject {formData.subject && <span className="text-green-600 text-xs">✓ Auto-filled</span>}
-            </label>
-            <input
-              type="text"
-              id="subject"
-              name="subject"
-              value={formData.subject}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                formData.subject ? 'border-green-300 bg-green-50' : 'border-gray-300'
-              }`}
-              placeholder="e.g., Mathematics (auto-filled when course code is entered)"
-            />
-            {formData.subject && (
-              <div className="mt-1 text-xs text-green-600">
-                Subject automatically fetched from course code
-              </div>
-            )}
-          </div>
+          {/* Move subject alongside name above; keep helper here */}
+          {formData.subject && (
+            <div className="mt-1 text-xs text-green-600">Subject automatically fetched from course code</div>
+          )}
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">

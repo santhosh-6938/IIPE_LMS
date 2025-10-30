@@ -119,10 +119,10 @@ export const fetchTaskMarks = createAsyncThunk(
 
 export const updateTaskMarks = createAsyncThunk(
   'marks/updateTaskMarks',
-  async ({ taskId, marksData }, { rejectWithValue }) => {
+  async ({ taskId, marksData, maxMarks }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`${API_URL}/marks/task/${taskId}`, { marksData }, {
+      const response = await axios.put(`${API_URL}/marks/task/${taskId}`, { marksData, maxMarks }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;

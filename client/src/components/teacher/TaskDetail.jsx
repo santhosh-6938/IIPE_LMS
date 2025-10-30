@@ -732,7 +732,7 @@ const TaskDetail = () => {
       case 'marks':
         return (
           <div className="space-y-6">
-            <TaskMarksManager taskId={taskId} onClose={() => {}} />
+            <TaskMarksManager taskId={taskId} onClose={() => setActiveTab('overview')} />
           </div>
         );
       case 'interaction':

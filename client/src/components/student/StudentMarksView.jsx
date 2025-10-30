@@ -40,21 +40,7 @@ const StudentMarksView = () => {
     { id: 'tasks', label: 'Task Marks', icon: FileText },
   ];
 
-  const getGradeColor = (marks) => {
-    if (marks >= 90) return 'text-green-600';
-    if (marks >= 80) return 'text-blue-600';
-    if (marks >= 70) return 'text-yellow-600';
-    if (marks >= 60) return 'text-orange-600';
-    return 'text-red-600';
-  };
-
-  const getGradeLabel = (marks) => {
-    if (marks >= 90) return 'Excellent';
-    if (marks >= 80) return 'Good';
-    if (marks >= 70) return 'Satisfactory';
-    if (marks >= 60) return 'Pass';
-    return 'Fail';
-  };
+  // Removed pass/fail and grade labels per requirements
 
   const renderMidTermMarks = () => {
     if (isLoading) {
@@ -94,11 +80,8 @@ const StudentMarksView = () => {
               <div className="text-right">
                 {mark.marks && mark.marks.length > 0 ? (
                   <div>
-                    <div className={`text-3xl font-bold ${getGradeColor(mark.marks[0].marks)}`}>
+                    <div className="text-3xl font-bold text-gray-900">
                       {mark.marks[0].marks}/100
-                    </div>
-                    <div className={`text-sm font-medium ${getGradeColor(mark.marks[0].marks)}`}>
-                      {getGradeLabel(mark.marks[0].marks)}
                     </div>
                   </div>
                 ) : (
@@ -167,11 +150,8 @@ const StudentMarksView = () => {
                 <div className="text-right">
                   {studentMark ? (
                     <div>
-                      <div className={`text-3xl font-bold ${getGradeColor(studentMark.marks)}`}>
-                        {studentMark.marks}/100
-                      </div>
-                      <div className={`text-sm font-medium ${getGradeColor(studentMark.marks)}`}>
-                        {getGradeLabel(studentMark.marks)}
+                      <div className="text-3xl font-bold text-gray-900">
+                        {studentMark.marks}/{taskMark?.maxMarks || 100}
                       </div>
                     </div>
                   ) : (

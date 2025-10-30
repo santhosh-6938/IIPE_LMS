@@ -46,17 +46,18 @@ const getEmailTemplate = async (templateName) => {
 const renderEmailTemplate = async (templateName, variables = {}) => {
   try {
     const template = await getEmailTemplate(templateName);
-    
+    // Add current year/date to available variables
+    const now = new Date();
+    variables.currentYear = now.getFullYear().toString();
+    variables.currentDate = now.toLocaleDateString();
     // Replace placeholders in all template fields
     const rendered = {
       subject: replacePlaceholders(template.subject, variables),
       bodyHtml: replacePlaceholders(template.bodyHtml, variables),
       bodyText: replacePlaceholders(template.bodyText, variables)
     };
-
     return rendered;
   } catch (error) {
-    console.error(`Error rendering email template '${templateName}':`, error);
     throw error;
   }
 };

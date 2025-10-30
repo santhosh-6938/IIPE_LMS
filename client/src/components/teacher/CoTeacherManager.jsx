@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { UserPlus, UserMinus, Mail, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { UserPlus, UserMinus, Mail, Clock, CheckCircle, XCircle, AlertCircle, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { 
   inviteCoTeacher, 
@@ -16,6 +16,12 @@ const CoTeacherManager = ({ classroom, onUpdate }) => {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
+  const [teacherQuery, setTeacherQuery] = useState('');
+  const [teacherResults, setTeacherResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [teacherPage, setTeacherPage] = useState(1);
+  const [teacherHasMore, setTeacherHasMore] = useState(true);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
   // Check if current user is main teacher
   const isMainTeacher = classroom.teacher._id === (user?._id || user?.id);
@@ -25,6 +31,60 @@ const CoTeacherManager = ({ classroom, onUpdate }) => {
       dispatch(fetchCoTeacherInvitations(classroom._id));
     }
   }, [classroom._id, isMainTeacher, dispatch]);
+
+  // Load initial teachers when opening the invite form
+  useEffect(() => {
+    const loadInitial = async () => {
+      if (!showInviteForm || !isMainTeacher) return;
+      try {
+        setIsSearching(true);
+        const token = localStorage.getItem('token');
+        const params = new URLSearchParams({ page: String(teacherPage), limit: '10', role: 'teacher' });
+        const res = await fetch(`${API_URL}/admin/users?${params.toString()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        const data = await res.json();
+        const users = Array.isArray(data.users) ? data.users : [];
+        setTeacherResults(users);
+        const total = data?.pagination?.totalUsers || users.length;
+        setTeacherHasMore(teacherPage * 10 < total);
+      } catch (e) {
+        setTeacherResults([]);
+        setTeacherHasMore(false);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+    loadInitial();
+    // reset page when opening
+    if (showInviteForm) setTeacherPage(1);
+  }, [showInviteForm, isMainTeacher]);
+
+  // Search teachers with debounce
+  useEffect(() => {
+    let active = true;
+    const handler = setTimeout(async () => {
+      if (!teacherQuery || !isMainTeacher) {
+        if (active) setTeacherResults([]);
+        return;
+      }
+      try {
+        setIsSearching(true);
+        const token = localStorage.getItem('token');
+        const params = new URLSearchParams({ page: '1', limit: '10', search: teacherQuery, role: 'teacher' });
+        const res = await fetch(`${API_URL}/admin/users?${params.toString()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        const data = await res.json();
+        if (active) setTeacherResults(Array.isArray(data.users) ? data.users : []);
+      } catch (e) {
+        if (active) setTeacherResults([]);
+      } finally {
+        if (active) setIsSearching(false);
+      }
+    }, 300);
+    return () => { active = false; clearTimeout(handler); };
+  }, [teacherQuery, isMainTeacher]);
 
   useEffect(() => {
     if (error) {
@@ -171,7 +231,7 @@ const CoTeacherManager = ({ classroom, onUpdate }) => {
         </div>
       )}
 
-      {/* Invite Form */}
+      {/* Invite Form with searchable teacher list */}
       {showInviteForm && (
         <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
           <h4 className="font-medium text-gray-900 mb-4">Invite Co-Teacher</h4>
@@ -188,6 +248,81 @@ const CoTeacherManager = ({ classroom, onUpdate }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
+            </div>
+
+            {/* Filter teachers list */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Or search teacher to invite
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={teacherQuery}
+                  onChange={(e) => setTeacherQuery(e.target.value)}
+                  placeholder="Type name or email"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
+              <div className="mt-2 max-h-56 overflow-y-auto bg-white border rounded-lg">
+                {isSearching && teacherResults.length === 0 ? (
+                  <div className="p-3 text-sm text-gray-500">Loading...</div>
+                ) : teacherResults.length === 0 ? (
+                  <div className="p-3 text-sm text-gray-500">No teachers found</div>
+                ) : (
+                  <>
+                    {teacherResults
+                      .filter(t => !teacherQuery || (t.name?.toLowerCase().includes(teacherQuery.toLowerCase()) || t.email?.toLowerCase().includes(teacherQuery.toLowerCase())))
+                      .map(t => (
+                        <div key={t._id} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{t.name}</div>
+                            <div className="text-xs text-gray-600">{t.email}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInviteEmail(t.email)}
+                            className="text-blue-600 text-sm hover:underline"
+                          >
+                            Select
+                          </button>
+                        </div>
+                      ))}
+                    {teacherHasMore && (
+                      <div className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const nextPage = teacherPage + 1;
+                              setIsSearching(true);
+                              const token = localStorage.getItem('token');
+                              const params = new URLSearchParams({ page: String(nextPage), limit: '10', role: 'teacher' });
+                              const res = await fetch(`${API_URL}/admin/users?${params.toString()}`, {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {}
+                              });
+                              const data = await res.json();
+                              const users = Array.isArray(data.users) ? data.users : [];
+                              setTeacherResults(prev => [...prev, ...users]);
+                              const total = data?.pagination?.totalUsers || prev.length + users.length;
+                              setTeacherHasMore(nextPage * 10 < total);
+                              setTeacherPage(nextPage);
+                            } catch (e) {
+                              setTeacherHasMore(false);
+                            } finally {
+                              setIsSearching(false);
+                            }
+                          }}
+                          className="text-blue-600 text-sm hover:underline"
+                        >
+                          {isSearching ? 'Loading...' : 'Load more'}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -215,6 +350,8 @@ const CoTeacherManager = ({ classroom, onUpdate }) => {
                   setShowInviteForm(false);
                   setInviteEmail('');
                   setInviteMessage('');
+                  setTeacherQuery('');
+                  setTeacherResults([]);
                 }}
                 className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
               >

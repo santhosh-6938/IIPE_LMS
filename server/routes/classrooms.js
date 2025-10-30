@@ -368,7 +368,7 @@ router.delete('/:id', auth, authorize('teacher'), async (req, res) => {
   }
 });
 
-// Archive classroom (teacher only)
+// Archive classroom (teacher or co-teacher)
 router.post('/:id/archive', auth, authorize('teacher'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -377,7 +377,7 @@ router.post('/:id/archive', auth, authorize('teacher'), async (req, res) => {
       .populate('teacher', 'name email _id')
       .populate('students', 'name email rollNumber createdAt');
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
-    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+    if (!hasTeacherAccess(classroom, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
     if (classroom.isArchived) {
@@ -395,7 +395,7 @@ router.post('/:id/archive', auth, authorize('teacher'), async (req, res) => {
   }
 });
 
-// Unarchive classroom (teacher only)
+// Unarchive classroom (teacher or co-teacher)
 router.post('/:id/unarchive', auth, authorize('teacher'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -403,7 +403,7 @@ router.post('/:id/unarchive', auth, authorize('teacher'), async (req, res) => {
       .populate('teacher', 'name email _id')
       .populate('students', 'name email rollNumber createdAt');
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
-    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+    if (!hasTeacherAccess(classroom, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
     if (!classroom.isArchived) {
@@ -437,7 +437,7 @@ router.get('/students/available', auth, authorize('teacher'), async (req, res) =
   }
 });
 
-// Add students to classroom (teacher only)
+  // Add students to classroom (teacher or co-teacher)
 router.post('/:classroomId/students', auth, authorize('teacher'), async (req, res) => {
   try {
     const { classroomId } = req.params;
@@ -451,8 +451,8 @@ router.post('/:classroomId/students', auth, authorize('teacher'), async (req, re
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    // Check if teacher owns this classroom
-    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+    // Allow if main teacher or co-teacher
+    if (!hasTeacherAccess(classroom, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -531,7 +531,7 @@ router.post('/:classroomId/students', auth, authorize('teacher'), async (req, re
   }
 });
 
-// Remove a single student from classroom (teacher only)
+// Remove a single student from classroom (teacher or co-teacher)
 router.delete('/:classroomId/students/:studentId', auth, authorize('teacher'), async (req, res) => {
   try {
     const { classroomId, studentId } = req.params;
@@ -544,8 +544,8 @@ router.delete('/:classroomId/students/:studentId', auth, authorize('teacher'), a
       return res.status(404).json({ message: 'Classroom not found' });
     }
 
-    // Check if teacher owns this classroom
-    if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+    // Allow if main teacher or co-teacher
+    if (!hasTeacherAccess(classroom, req.user._id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -592,7 +592,7 @@ router.delete('/:classroomId/students/:studentId', auth, authorize('teacher'), a
   }
 });
 
-// Bulk import students from Excel/CSV file (teacher only)
+// Bulk import students from Excel/CSV file (teacher or co-teacher)
 router.post('/:classroomId/students/bulk-import', auth, authorize('teacher'), (req, res) => {
   // Wrap multer to capture errors and return JSON
   upload.single('excelFile')(req, res, async (err) => {
@@ -614,8 +614,8 @@ router.post('/:classroomId/students/bulk-import', auth, authorize('teacher'), (r
         return res.status(404).json({ message: 'Classroom not found' });
       }
 
-      // Check if teacher owns this classroom
-      if (classroom.teacher._id.toString() !== req.user._id.toString()) {
+      // Allow if main teacher or co-teacher
+      if (!hasTeacherAccess(classroom, req.user._id)) {
         return res.status(403).json({ message: 'Access denied' });
       }
 

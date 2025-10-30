@@ -20,6 +20,8 @@ import StudentClassroomDetail from './components/student/StudentClassroomDetail'
 import TaskDetail from './components/teacher/TaskDetail';
 import CodeCompiler from './components/compiler/CodeCompiler';
 import CompilerLanding from './components/compiler/CompilerLanding';
+import LandingPage from './components/LandingPage';
+import NotFound from './components/NotFound';
 import CompilerHistory from './components/compiler/CompilerHistory';
 import './App.css';
 import StudentTaskDetail from './components/student/StudentTaskDetail';
@@ -27,15 +29,16 @@ import StudentMarksView from './components/student/StudentMarksView';
 import ConcurrentLoginManager from './components/auth/ConcurrentLoginManager';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Footer from './components/common/Footer';
 
 // Logout component that handles the logout action
 const LogoutHandler = () => {
   const dispatch = useDispatch();
-  
+
   useEffect(() => {
     dispatch(logout());
   }, [dispatch]);
-  
+
   return <Navigate to="/login" />;
 };
 
@@ -47,7 +50,7 @@ function App() {
     // Only try to load user if there's a token
     const token = localStorage.getItem('token');
     console.log('App useEffect - Token check:', { hasToken: !!token, isAuthenticated });
-    
+
     if (token) {
       dispatch(loadUser());
     } else {
@@ -63,13 +66,13 @@ function App() {
   // Cleanup effect to handle authentication state properly
   useEffect(() => {
     const token = localStorage.getItem('token');
-    
+
     // If no token but still authenticated, clear the state
     if (!token && isAuthenticated) {
       console.log('Token missing but still authenticated, clearing state');
       dispatch(logout());
     }
-    
+
     // If token exists but not authenticated, try to load user
     if (token && !isAuthenticated && !isLoading) {
       console.log('Token exists but not authenticated, loading user');
@@ -102,256 +105,50 @@ function App() {
         <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover theme="light" />
         <Header />
         <Routes>
-          {/* Public routes - accessible even when authenticated */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/logout" element={<LogoutHandler />} />
-          
-          {/* Public Compiler Routes - No login required */}
-          <Route path="/" element={<CompilerLanding />} />
-          <Route path="/compiler" element={<CodeCompiler />} />
-          <Route 
-            path="/compiler/history" 
-            element={
-              isAuthenticated ? (
-                <PrivateRoute requiredRole={user?.role}>
-                  <CompilerHistory />
-                </PrivateRoute>
-              ) : (
-                <Navigate to="/login" />
-              )
-            } 
-          />
-          
-          {/* First Login Password Change Route */}
-          <Route 
-            path="/first-login-password-change" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <FirstLoginPasswordChange />
-              ) : (
-                <Navigate to="/" />
-              )
-            } 
-          />
-          
-          {/* Admin Routes */}
-          <Route 
-            path="/admin/dashboard" 
-            element={
-              <PrivateRoute requiredRole="admin">
-                <AdminDashboard />
-              </PrivateRoute>
-            } 
-          />
-          
-          {/* Teacher Routes */}
-          <Route 
-            path="/teacher/dashboard" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="teacher">
-                  <TeacherDashboard />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/teacher/profile" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="teacher">
-                  <TeacherProfile />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/teacher/classroom/:classroomId" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="teacher">
-                  <ClassroomDetail />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/teacher/task/:taskId" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="teacher">
-                  <TaskDetail />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/teacher/task/:taskId/detail" 
-            element={
-              <PrivateRoute requiredRole="teacher">
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Task Detail View</h2>
-                    <p className="text-gray-600">Task detail view coming soon...</p>
-                    <button 
-                      onClick={() => window.history.back()}
-                      className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Go Back
-                    </button>
-                  </div>
-                </div>
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/teacher/content/:contentId" 
-            element={
-              <PrivateRoute requiredRole="teacher">
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Content Detail View</h2>
-                    <p className="text-gray-600">Content detail view coming soon...</p>
-                    <button 
-                      onClick={() => window.history.back()}
-                      className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Go Back
-                    </button>
-                  </div>
-                </div>
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/teacher/content/:contentId/edit" 
-            element={
-              <PrivateRoute requiredRole="teacher">
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Edit Content</h2>
-                    <p className="text-gray-600">Content edit view coming soon...</p>
-                    <button 
-                      onClick={() => window.history.back()}
-                      className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Go Back
-                    </button>
-                  </div>
-                </div>
-              </PrivateRoute>
-            } 
-          />
-          
-          {/* Co-Teacher Invitation Route */}
-          <Route 
-            path="/co-teacher/invitation/:token" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="teacher">
-                  <CoTeacherInvitationPage />
-                </PrivateRoute>
-              )
-            } 
-          />
-          
-          {/* Student Routes */}
-          <Route 
-            path="/student/dashboard" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="student">
-                  <StudentDashboard />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/student/profile" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="student">
-                  <StudentProfile />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/student/classroom/:classroomId" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="student">
-                  <StudentClassroomDetail />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/student/task/:taskId" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="student">
-                  <StudentTaskDetail />
-                </PrivateRoute>
-              )
-            } 
-          />
-          <Route 
-            path="/student/marks" 
-            element={
-              shouldRedirectToPasswordChange ? (
-                <Navigate to="/first-login-password-change" />
-              ) : (
-                <PrivateRoute requiredRole="student">
-                  <StudentMarksView />
-                </PrivateRoute>
-              )
-            } 
-          />
-          
-          {/* Default redirect */}
-          <Route 
-            path="/dashboard" 
-            element={
-              isAuthenticated ? (
-                shouldRedirectToPasswordChange ? (
-                  <Navigate to="/first-login-password-change" />
-                ) : (
-                  <Navigate to={`/${user?.role}/dashboard`} />
-                )
-              ) : (
-                <Navigate to="/" />
-              )
-            } 
-          />
-          
-          {/* Catch all route */}
-          <Route path="*" element={<Navigate to="/" />} />
+          {/* Unauthenticated: Only show landing, compiler, login, register, public pages */}
+          {!isAuthenticated && (
+            <>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/compiler" element={<CodeCompiler />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Catch-all always last so known pages win */}
+              <Route path="*" element={<NotFound />} />
+            </>
+          )}
+          {/* Authenticated: Show real app except landing, / will redirect to dashboard */}
+          {isAuthenticated && (
+            <>
+              <Route path="/" element={<Navigate to={`/${user?.role}/dashboard`} />} />
+              <Route path="/compiler" element={<CodeCompiler />} />
+              <Route path="/logout" element={<LogoutHandler />} />
+              {/* Admin */}
+              <Route path="/admin/dashboard" element={<PrivateRoute requiredRole="admin"><AdminDashboard /></PrivateRoute>} />
+              {/* Teacher */}
+              <Route path="/teacher/dashboard" element={<PrivateRoute requiredRole="teacher"><TeacherDashboard /></PrivateRoute>} />
+              <Route path="/teacher/profile" element={<PrivateRoute requiredRole="teacher"><TeacherProfile /></PrivateRoute>} />
+              <Route path="/teacher/classroom/:classroomId" element={<PrivateRoute requiredRole="teacher"><ClassroomDetail /></PrivateRoute>} />
+              <Route path="/teacher/task/:taskId" element={<PrivateRoute requiredRole="teacher"><TaskDetail /></PrivateRoute>} />
+              <Route path="/co-teacher/invitation/:token" element={<PrivateRoute requiredRole="teacher"><CoTeacherInvitationPage /></PrivateRoute>} />
+              {/* Student */}
+              <Route path="/student/dashboard" element={<PrivateRoute requiredRole="student"><StudentDashboard /></PrivateRoute>} />
+              <Route path="/student/profile" element={<PrivateRoute requiredRole="student"><StudentProfile /></PrivateRoute>} />
+              <Route path="/student/classroom/:classroomId" element={<PrivateRoute requiredRole="student"><StudentClassroomDetail /></PrivateRoute>} />
+              <Route path="/student/task/:taskId" element={<PrivateRoute requiredRole="student"><StudentTaskDetail /></PrivateRoute>} />
+              <Route path="/student/marks" element={<PrivateRoute requiredRole="student"><StudentMarksView /></PrivateRoute>} />
+              <Route path="/compiler/history" element={<PrivateRoute requiredRole={user?.role}><CompilerHistory /></PrivateRoute>} />
+              <Route path="/first-login-password-change" element={user && (user.role === 'student' || user.role === 'teacher') && user.isFirstLogin ? <FirstLoginPasswordChange /> : <Navigate to="/" />} />
+              {/* Catch-all for real unknown pages */}
+              <Route path="*" element={<NotFound />} />
+            </>
+          )}
         </Routes>
-        
+
         {/* Global Concurrent Login Manager */}
         <ConcurrentLoginManager isVisible={isAuthenticated} />
+        <Footer />
       </div>
     </Router>
   );

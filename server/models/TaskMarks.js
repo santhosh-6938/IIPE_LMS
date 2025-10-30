@@ -34,8 +34,7 @@ const taskMarksSchema = new mongoose.Schema({
     marks: {
       type: Number,
       required: true,
-      min: 0,
-      max: 100
+      min: 0
     },
     feedback: {
       type: String,
@@ -50,6 +49,10 @@ const taskMarksSchema = new mongoose.Schema({
   publishedAt: {
     type: Date,
     default: null
+  },
+  maxMarks: {
+    type: Number,
+    default: 100
   },
   publishedBy: {
     type: mongoose.Schema.Types.ObjectId,
