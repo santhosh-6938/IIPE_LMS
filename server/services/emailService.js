@@ -40,12 +40,23 @@ const sendEmail = async (to, subject, html, text = null) => {
   }
 
   try {
+    // Inject dynamic year footer (code-driven)
+    const year = new Date().getFullYear();
+    const footerHtml = `\n<div style="text-align:center;margin-top:20px;color:#999;font-size:12px;">\n  <p>© ${year} IIPE LMS. All rights reserved.</p>\n</div>`;
+    let bodyHtml = String(html || '');
+    if (bodyHtml.toLowerCase().includes('</body>')) {
+      bodyHtml = bodyHtml.replace(/<\/body>/i, `${footerHtml}</body>`);
+    } else {
+      bodyHtml += footerHtml;
+    }
+    const bodyText = (text || (html ? html.replace(/<[^>]*>/g, '') : '')) + `\n\n© ${year} IIPE LMS. All rights reserved.`;
+
     const mailOptions = {
       from: process.env.MAIL_USER,
       to: to,
       subject: subject,
-      html: html,
-      text: text || html.replace(/<[^>]*>/g, '') // Strip HTML tags for text version
+      html: bodyHtml,
+      text: bodyText
     };
 
     const info = await transporter.sendMail(mailOptions);
