@@ -41,7 +41,7 @@ const TeacherDashboard = () => {
     acc[clsId].push(task);
     return acc;
   }, {});
-  
+
   // Calculate task statistics
   const getTaskStatus = (task) => {
     if (!task.deadline) return 'pending';
@@ -51,7 +51,7 @@ const TeacherDashboard = () => {
     if (isBefore(now, deadline)) return 'pending';
     return 'due-today';
   };
-  
+
   const overdueTasks = tasks.filter(task => getTaskStatus(task) === 'overdue').length;
   const pendingTasks = tasks.filter(task => getTaskStatus(task) === 'pending').length;
 
@@ -99,7 +99,7 @@ const TeacherDashboard = () => {
         {/* Tabs for Active / Archived */}
         <div className="mb-6 border-b">
           <nav className="flex space-x-6">
-            {['active','archived'].map(t => (
+            {['active', 'archived'].map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -121,19 +121,23 @@ const TeacherDashboard = () => {
                 <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
                 <p className="text-gray-600">Total Students</p>
                 {visibleClassrooms.length > 0 && (
-                  <div className="mt-3 space-y-1 max-h-28 overflow-y-auto pr-1">
-                    {visibleClassrooms.map(cls => (
-                      <div key={cls._id} className="text-xs text-gray-600 flex items-center justify-between">
-                        <span className="truncate mr-2">{cls.name}</span>
-                        <span className="text-gray-900 font-medium">{cls.students?.length || 0}</span>
-                      </div>
-                    ))}
+                  <div className={`mt-3 max-h-28 overflow-y-auto pr-1 ${visibleClassrooms.length > 3 ? "grid grid-cols-2 gap-2" : "space-y-1"}`} >
+                    {visibleClassrooms
+                      .slice(0, visibleClassrooms.length > 3 ? visibleClassrooms.length : 3)
+                      .map((cls) => (
+                        <div key={cls._id} className="text-xs text-gray-600 flex items-center justify-between" >
+                          <span className="truncate mr-2">{cls.name}</span>
+                          <span className="text-gray-900 font-medium">
+                            {cls.students?.length || 0}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>
             </div>
           </div>
-          
+
           <div className="card p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center">
               <div className="p-3 bg-green-100 dark:bg-gray-800 rounded-lg ring-1 ring-green-200 dark:ring-gray-700">
@@ -145,7 +149,7 @@ const TeacherDashboard = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="card p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center">
               <div className="p-3 bg-orange-100 dark:bg-gray-800 rounded-lg ring-1 ring-orange-200 dark:ring-gray-700">
@@ -166,7 +170,7 @@ const TeacherDashboard = () => {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900">My Classrooms</h2>
             </div>
-            
+
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[...Array(4)].map((_, i) => (
@@ -224,7 +228,7 @@ const TeacherDashboard = () => {
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {['overdue','due-today','pending','completed'].map((key) => {
+                        {['overdue', 'due-today', 'pending', 'completed'].map((key) => {
                           const counts = list.reduce((acc, t) => {
                             const now = new Date();
                             const hasDeadline = Boolean(t.deadline);
@@ -238,10 +242,10 @@ const TeacherDashboard = () => {
                             acc[status]++;
                             if (isCompleted) acc.completed++;
                             return acc;
-                          }, { overdue:0, 'due-today':0, pending:0, completed:0 });
+                          }, { overdue: 0, 'due-today': 0, pending: 0, completed: 0 });
                           const value = counts[key];
-                          const labelMap = { overdue:'Overdue', 'due-today':'Due Today', pending:'Pending', completed:'Completed' };
-                          const colorMap = { overdue:'text-red-600', 'due-today':'text-yellow-600', pending:'text-brandBlue', completed:'text-brandGreen' };
+                          const labelMap = { overdue: 'Overdue', 'due-today': 'Due Today', pending: 'Pending', completed: 'Completed' };
+                          const colorMap = { overdue: 'text-red-600', 'due-today': 'text-yellow-600', pending: 'text-brandBlue', completed: 'text-brandGreen' };
                           return (
                             <div key={key} className="flex items-center justify-between bg-gray-50 rounded-md px-3 py-2">
                               <span className="text-sm text-gray-600">{labelMap[key]}</span>

@@ -169,8 +169,18 @@ const marksSlice = createSlice({
     taskMarks: {},
     studentMidTermMarks: [],
     studentTaskMarks: {},
+    // granular loading flags
+    isLoadingMidTerm: false,
+    isLoadingTaskMarks: false,
+    isLoadingStudentTaskMarks: false,
+    // legacy combined (computed on the fly below)
     isLoading: false,
-    error: null
+    error: null,
+    // caching helpers
+    _taskMarksLoadingMap: {},
+    _studentTaskMarksLoadingMap: {},
+    _lastFetchedTaskMarksAt: {},
+    _lastFetchedStudentTaskMarksAt: {}
   },
   reducers: {
     clearError: (state) => {
@@ -181,161 +191,205 @@ const marksSlice = createSlice({
       state.taskMarks = {};
       state.studentMidTermMarks = [];
       state.studentTaskMarks = {};
+      state._lastFetchedTaskMarksAt = {};
+      state._lastFetchedStudentTaskMarksAt = {};
+    },
+    invalidateTaskMarks: (state, action) => {
+      const taskId = action.payload;
+      if (taskId) {
+        delete state._lastFetchedTaskMarksAt[taskId];
+      } else {
+        state._lastFetchedTaskMarksAt = {};
+      }
+    },
+    invalidateStudentTaskMarks: (state, action) => {
+      const taskId = action.payload;
+      if (taskId) {
+        delete state._lastFetchedStudentTaskMarksAt[taskId];
+      } else {
+        state._lastFetchedStudentTaskMarksAt = {};
+      }
     }
   },
   extraReducers: (builder) => {
     builder
       // Fetch Mid Term Marks
       .addCase(fetchMidTermMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingMidTerm = true;
         state.error = null;
       })
       .addCase(fetchMidTermMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.midTermMarks = action.payload;
       })
       .addCase(fetchMidTermMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.error = action.payload;
       })
       
       // Create Mid Term Marks
       .addCase(createMidTermMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingMidTerm = true;
         state.error = null;
       })
       .addCase(createMidTermMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.midTermMarks.unshift(action.payload);
       })
       .addCase(createMidTermMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.error = action.payload;
       })
       
       // Upload Mid Term Marks
       .addCase(uploadMidTermMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingMidTerm = true;
         state.error = null;
       })
       .addCase(uploadMidTermMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.midTermMarks.unshift(action.payload);
       })
       .addCase(uploadMidTermMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.error = action.payload;
       })
       
       // Update Mid Term Marks
       .addCase(updateMidTermMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingMidTerm = true;
         state.error = null;
       })
       .addCase(updateMidTermMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         const index = state.midTermMarks.findIndex(mark => mark._id === action.payload._id);
         if (index !== -1) {
           state.midTermMarks[index] = action.payload;
         }
       })
       .addCase(updateMidTermMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.error = action.payload;
       })
       
       // Publish Mid Term Marks
       .addCase(publishMidTermMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingMidTerm = true;
         state.error = null;
       })
       .addCase(publishMidTermMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         const index = state.midTermMarks.findIndex(mark => mark._id === action.payload.marks._id);
         if (index !== -1) {
           state.midTermMarks[index] = action.payload.marks;
         }
       })
       .addCase(publishMidTermMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.error = action.payload;
       })
       
       // Fetch Student Mid Term Marks
       .addCase(fetchStudentMidTermMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingMidTerm = true;
         state.error = null;
       })
       .addCase(fetchStudentMidTermMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.studentMidTermMarks = action.payload;
       })
       .addCase(fetchStudentMidTermMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingMidTerm = false;
         state.error = action.payload;
       })
       
       // Fetch Task Marks
-      .addCase(fetchTaskMarks.pending, (state) => {
-        state.isLoading = true;
+      .addCase(fetchTaskMarks.pending, (state, action) => {
+        state.isLoadingTaskMarks = true;
         state.error = null;
+        const taskId = action.meta.arg;
+        state._taskMarksLoadingMap[taskId] = true;
       })
       .addCase(fetchTaskMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingTaskMarks = false;
         if (action.payload) {
-          state.taskMarks[action.payload.task] = action.payload;
+          const taskKey = (action.payload.task && action.payload.task._id) ? action.payload.task._id : action.payload.task;
+          if (taskKey) {
+            state.taskMarks[taskKey] = action.payload;
+            state._lastFetchedTaskMarksAt[taskKey] = Date.now();
+            delete state._taskMarksLoadingMap[taskKey];
+          }
         }
       })
       .addCase(fetchTaskMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingTaskMarks = false;
         state.error = action.payload;
+        const taskId = action.meta.arg;
+        delete state._taskMarksLoadingMap[taskId];
       })
       
       // Update Task Marks
       .addCase(updateTaskMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingTaskMarks = true;
         state.error = null;
       })
       .addCase(updateTaskMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.taskMarks[action.payload.task] = action.payload;
+        state.isLoadingTaskMarks = false;
+        const taskKey = (action.payload.task && action.payload.task._id) ? action.payload.task._id : action.payload.task;
+        if (taskKey) {
+          state.taskMarks[taskKey] = action.payload;
+          state._lastFetchedTaskMarksAt[taskKey] = Date.now();
+        }
       })
       .addCase(updateTaskMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingTaskMarks = false;
         state.error = action.payload;
       })
       
       // Publish Task Marks
       .addCase(publishTaskMarks.pending, (state) => {
-        state.isLoading = true;
+        state.isLoadingTaskMarks = true;
         state.error = null;
       })
       .addCase(publishTaskMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.taskMarks[action.payload.marks.task] = action.payload.marks;
+        state.isLoadingTaskMarks = false;
+        const taskKey = (action.payload.marks.task && action.payload.marks.task._id) ? action.payload.marks.task._id : action.payload.marks.task;
+        if (taskKey) {
+          state.taskMarks[taskKey] = action.payload.marks;
+          state._lastFetchedTaskMarksAt[taskKey] = Date.now();
+        }
       })
       .addCase(publishTaskMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingTaskMarks = false;
         state.error = action.payload;
       })
       
       // Fetch Student Task Marks
-      .addCase(fetchStudentTaskMarks.pending, (state) => {
-        state.isLoading = true;
+      .addCase(fetchStudentTaskMarks.pending, (state, action) => {
+        state.isLoadingStudentTaskMarks = true;
         state.error = null;
+        const taskId = action.meta.arg;
+        state._studentTaskMarksLoadingMap[taskId] = true;
       })
       .addCase(fetchStudentTaskMarks.fulfilled, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingStudentTaskMarks = false;
         if (action.payload) {
-          state.studentTaskMarks[action.payload.task._id] = action.payload;
+          const taskKey = (action.payload.task && action.payload.task._id) ? action.payload.task._id : action.payload.task;
+          if (taskKey) {
+            state.studentTaskMarks[taskKey] = action.payload;
+            state._lastFetchedStudentTaskMarksAt[taskKey] = Date.now();
+            delete state._studentTaskMarksLoadingMap[taskKey];
+          }
         }
       })
       .addCase(fetchStudentTaskMarks.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLoadingStudentTaskMarks = false;
         state.error = action.payload;
+        const taskId = action.meta.arg;
+        delete state._studentTaskMarksLoadingMap[taskId];
       });
   }
 });
 
-export const { clearError, clearMarks } = marksSlice.actions;
+export const { clearError, clearMarks, invalidateTaskMarks, invalidateStudentTaskMarks } = marksSlice.actions;
 export default marksSlice.reducer;

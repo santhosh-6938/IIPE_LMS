@@ -114,7 +114,7 @@ const TaskMarksManager = ({ taskId, onClose }) => {
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                   >
                     <Edit className="w-4 h-4" />
-                    <span>Edit Marks</span>
+                    <span>Edit Draft</span>
                   </button>
                   <button
                     onClick={handlePublish}
@@ -122,7 +122,7 @@ const TaskMarksManager = ({ taskId, onClose }) => {
                     className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 text-white ${(!currentTaskMarks?.marks || currentTaskMarks.marks.length === 0) ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                   >
                     <CheckCircle className="w-4 h-4" />
-                    <span>Publish Marks</span>
+                    <span>Submit</span>
                   </button>
                   </>
                 )}
@@ -467,7 +467,7 @@ const EditTaskMarksModal = ({ isOpen, onClose, task, existingMarks }) => {
               disabled={isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {isLoading ? 'Updating...' : 'Update Marks'}
+              {isLoading ? 'Saving...' : 'Save Draft'}
             </button>
           </div>
         </form>

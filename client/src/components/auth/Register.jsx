@@ -16,8 +16,7 @@ const Register = () => {
     email: '',
     rollNumber: '',
     password: '',
-    confirmPassword: '',
-    role: 'student'
+    confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -57,14 +56,15 @@ const Register = () => {
     }
     
     // Validate roll number for students
-    if (formData.role === 'student' && !formData.rollNumber.trim()) {
+    if (!formData.rollNumber.trim()) {
       return;
     }
     
     const { confirmPassword, ...userData } = formData;
+    const payload = { ...userData, role: 'student' };
     
     // Store registration data for after email verification
-    setPendingRegistrationData(userData);
+    setPendingRegistrationData(payload);
     setShowEmailVerification(true);
   };
 
@@ -201,21 +201,7 @@ const Register = () => {
               </div>
             )}
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                I am a
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
-              >
-                <option value="student">Student</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
+            {/* Removed role selection - student-only registration */}
 
 
             <div>
@@ -300,7 +286,7 @@ const Register = () => {
 
               <button
                 type="submit"
-                disabled={isLoading || formData.password !== formData.confirmPassword || (formData.role === 'student' && !formData.rollNumber.trim()) || formData.password.length < 6}
+                disabled={isLoading || formData.password !== formData.confirmPassword || !formData.rollNumber.trim() || formData.password.length < 6}
                 className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoading ? (

@@ -24,9 +24,7 @@ const TaskSummary = ({ tasks, classroomId }) => {
   const overdueTasks = tasks.filter(task => getTaskStatus(task) === 'overdue');
   const pendingTasks = tasks.filter(task => getTaskStatus(task) === 'pending');
   const dueTodayTasks = tasks.filter(task => getTaskStatus(task) === 'due-today');
-  const completedTasks = tasks.filter(task => 
-    task.submissions && task.submissions.length >= (task.maxSubmissions || 1)
-  );
+  const completedTasks = tasks.filter(task => task.status === 'completed');
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">

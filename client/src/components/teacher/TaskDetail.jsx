@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { ArrowLeft, FileText, Calendar, Users, Download, Eye, CheckCircle, Clock, AlertCircle, Upload, Image, File, X, Award } from 'lucide-react';
 import { format, isAfter, isBefore } from 'date-fns';
 import axios from 'axios';
+import { fetchTaskMarks } from '../../store/slices/marksSlice';
 
 const TeacherReplyInput = ({ taskId, studentId }) => {
   const dispatch = useDispatch();
@@ -84,6 +85,7 @@ const TaskDetail = () => {
   const dispatch = useDispatch();
   const { tasks } = useSelector(state => state.task);
   const { user } = useSelector(state => state.auth);
+  const { taskMarks } = useSelector(state => state.marks || { taskMarks: {} });
   
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
@@ -140,6 +142,25 @@ const TaskDetail = () => {
       setInstrCount(i ? i.split(/\s+/).length : 0);
     }
   }, [task]);
+
+  useEffect(() => {
+    if (taskId) {
+      dispatch(fetchTaskMarks(taskId));
+    }
+  }, [dispatch, taskId]);
+
+  // Fetch marks when opening the Submissions or Marks tab, and poll while viewing
+  useEffect(() => {
+    if (!taskId) return;
+    if (activeTab !== 'submissions' && activeTab !== 'marks') return;
+    let cancelled = false;
+    const run = async () => {
+      try { await dispatch(fetchTaskMarks(taskId)); } catch { /* noop */ }
+    };
+    run();
+    const interval = setInterval(() => { if (!cancelled) run(); }, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [dispatch, taskId, activeTab]);
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -637,12 +658,25 @@ const TaskDetail = () => {
           </div>
         );
       case 'submissions':
+        // Build quick lookup for marks by student id
+        const marksDoc = taskMarks[taskId];
+        const marksByStudent = new Map(
+          (marksDoc?.marks || []).map(m => [ (m.student?._id || m.student)?.toString?.(), m ])
+        );
+        const marksStatus = marksDoc?.status || null;
+        const maxMarks = marksDoc?.maxMarks || 100;
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-lg p-6 border">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Student Submissions</h2>
                 <div className="flex items-center space-x-2 text-sm">
+                  {marksStatus && (
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${marksStatus === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      <Award className="w-3 h-3 mr-1" />
+                      {marksStatus === 'published' ? 'Published' : 'Draft'}
+                    </span>
+                  )}
                   <span className="text-gray-600">Filter:</span>
                   {[
                     { id: 'all', label: 'All' },
@@ -682,6 +716,8 @@ const TaskDetail = () => {
                       const afterExt = submittedAt ? (!onTime && extended && submittedAt <= extended) : false;
                       const statusLabel = onTime ? 'On Time' : (afterExt ? 'After Extension' : (submittedAt ? 'Late' : 'Draft'));
                       const statusCls = onTime ? 'bg-green-100 text-green-800' : (afterExt ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
+                      const sid = (typeof submission.student === 'object' ? submission.student?._id : submission.student)?.toString?.();
+                      const mark = sid ? marksByStudent.get(sid) : null;
                       return (
                         <div key={index} className="py-2 flex items-center gap-3 text-sm">
                           <div className="flex-1 min-w-0">
@@ -692,6 +728,14 @@ const TaskDetail = () => {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
+                            {mark ? (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${marksStatus === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                <Award className="w-3 h-3 mr-1" />
+                                {mark.marks}/{maxMarks}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">Not graded</span>
+                            )}
                             <button
                               className="px-2 py-1 border rounded hover:bg-gray-50"
                               onClick={() => setRemarksModal({ open: true, studentId: submission.student._id, value: submission.remarks || '' })}

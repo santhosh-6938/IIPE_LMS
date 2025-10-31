@@ -47,6 +47,7 @@ const Header = () => {
     setTheme(next);
     localStorage.setItem('theme', next);
     applyTheme(next);
+    try { window.dispatchEvent(new CustomEvent('themechange', { detail: next })); } catch {}
   };
 
   return (

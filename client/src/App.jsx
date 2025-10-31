@@ -45,6 +45,15 @@ const LogoutHandler = () => {
 function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, isLoading, user } = useSelector(state => state.auth);
+  const [toastTheme, setToastTheme] = React.useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('theme') || 'light') : 'light'));
+  React.useEffect(() => {
+    const handler = (e) => {
+      const next = (e && e.detail) ? e.detail : (localStorage.getItem('theme') || 'light');
+      setToastTheme(next === 'dark' ? 'dark' : 'light');
+    };
+    window.addEventListener('themechange', handler);
+    return () => window.removeEventListener('themechange', handler);
+  }, []);
 
   useEffect(() => {
     // Only try to load user if there's a token
@@ -102,7 +111,7 @@ function App() {
       }}
     >
       <div className="App">
-        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover theme="light" />
+        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover theme={toastTheme === 'dark' ? 'dark' : 'light'} />
         <Header />
         <Routes>
           {/* Unauthenticated: Only show landing, compiler, login, register, public pages */}
@@ -136,6 +145,7 @@ function App() {
               <Route path="/student/dashboard" element={<PrivateRoute requiredRole="student"><StudentDashboard /></PrivateRoute>} />
               <Route path="/student/profile" element={<PrivateRoute requiredRole="student"><StudentProfile /></PrivateRoute>} />
               <Route path="/student/classroom/:classroomId" element={<PrivateRoute requiredRole="student"><StudentClassroomDetail /></PrivateRoute>} />
+              <Route path="/student/classroom/:classroomId/content" element={<PrivateRoute requiredRole="student"><StudentClassroomDetail /></PrivateRoute>} />
               <Route path="/student/task/:taskId" element={<PrivateRoute requiredRole="student"><StudentTaskDetail /></PrivateRoute>} />
               <Route path="/student/marks" element={<PrivateRoute requiredRole="student"><StudentMarksView /></PrivateRoute>} />
               <Route path="/compiler/history" element={<PrivateRoute requiredRole={user?.role}><CompilerHistory /></PrivateRoute>} />

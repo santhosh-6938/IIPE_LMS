@@ -32,6 +32,7 @@ const TaskManager = ({ classroomId, onUpdate }) => {
   }, [tasks.length, onUpdate]); // Only depend on tasks.length, not the entire tasks array
 
   const getTaskStatus = (task) => {
+    if (task.status === 'completed') return 'completed';
     if (!task.deadline) return 'pending';
     
     const now = new Date();

@@ -3,6 +3,7 @@ const { auth, authorize } = require('../middleware/auth');
 const User = require('../models/User');
 const { logActivity } = require('../middleware/activity');
 const { sendAccountBlockedEmail, sendAccountUnblockedEmail, isEmailConfigured } = require('../services/emailService');
+const mongoose = require('mongoose');
 
 const router = express.Router();
 
@@ -11,6 +12,10 @@ router.post('/block/:userId', auth, authorize(['admin']), async (req, res) => {
   try {
     const { userId } = req.params;
     const { reason } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, error: 'Invalid user id' });
+    }
 
     // Check if user exists
     const user = await User.findById(userId);
@@ -52,7 +57,19 @@ router.post('/block/:userId', auth, authorize(['admin']), async (req, res) => {
     user.blockedReason = reason || 'Account blocked by admin';
     user.updatedBy = req.user._id;
 
-    await user.save();
+    // Use atomic update to avoid save pipeline issues
+    await User.updateOne({ _id: user._id }, {
+      $set: {
+        isBlocked: true,
+        blockedAt: user.blockedAt,
+        blockedBy: user.blockedBy,
+        blockedReason: user.blockedReason,
+        updatedBy: user.updatedBy
+      }
+    });
+
+    // Reload updated for response consistency
+    const updated = await User.findById(user._id).select('email role isBlocked blockedAt blockedReason');
 
     // Log the activity
     try {
@@ -81,12 +98,12 @@ router.post('/block/:userId', auth, authorize(['admin']), async (req, res) => {
       success: true,
       message: 'User account blocked successfully',
       data: {
-        userId: user._id,
-        email: user.email,
-        role: user.role,
-        isBlocked: user.isBlocked,
-        blockedAt: user.blockedAt,
-        blockedReason: user.blockedReason
+        userId: updated._id,
+        email: updated.email,
+        role: updated.role,
+        isBlocked: updated.isBlocked,
+        blockedAt: updated.blockedAt,
+        blockedReason: updated.blockedReason
       }
     });
 
@@ -94,7 +111,8 @@ router.post('/block/:userId', auth, authorize(['admin']), async (req, res) => {
     console.error('Error blocking user:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to block user account'
+      error: 'Failed to block user account',
+      details: error?.message || ''
     });
   }
 });
@@ -103,6 +121,10 @@ router.post('/block/:userId', auth, authorize(['admin']), async (req, res) => {
 router.post('/unblock/:userId', auth, authorize(['admin']), async (req, res) => {
   try {
     const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, error: 'Invalid user id' });
+    }
 
     // Check if user exists
     const user = await User.findById(userId);
@@ -122,13 +144,17 @@ router.post('/unblock/:userId', auth, authorize(['admin']), async (req, res) => 
     }
 
     // Unblock the user
-    user.isBlocked = false;
-    user.blockedAt = null;
-    user.blockedBy = null;
-    user.blockedReason = null;
-    user.updatedBy = req.user._id;
+    const updates = {
+      isBlocked: false,
+      blockedAt: null,
+      blockedBy: null,
+      blockedReason: null,
+      updatedBy: req.user._id
+    };
 
-    await user.save();
+    await User.updateOne({ _id: user._id }, { $set: updates });
+
+    const updated = await User.findById(user._id).select('email role isBlocked blockedAt blockedReason');
 
     // Log the activity
     try {
@@ -156,10 +182,10 @@ router.post('/unblock/:userId', auth, authorize(['admin']), async (req, res) => 
       success: true,
       message: 'User account unblocked successfully',
       data: {
-        userId: user._id,
-        email: user.email,
-        role: user.role,
-        isBlocked: user.isBlocked
+        userId: updated._id,
+        email: updated.email,
+        role: updated.role,
+        isBlocked: updated.isBlocked
       }
     });
 
@@ -167,7 +193,8 @@ router.post('/unblock/:userId', auth, authorize(['admin']), async (req, res) => 
     console.error('Error unblocking user:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to unblock user account'
+      error: 'Failed to unblock user account',
+      details: error?.message || ''
     });
   }
 });
@@ -222,6 +249,10 @@ router.get('/blocked', auth, authorize(['admin']), async (req, res) => {
 router.get('/status/:userId', auth, authorize(['admin']), async (req, res) => {
   try {
     const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, error: 'Invalid user id' });
+    }
 
     const user = await User.findById(userId)
       .select('name email role isBlocked blockedAt blockedBy blockedReason isActive')

@@ -231,8 +231,8 @@ const userSchema = new mongoose.Schema({
   publications: { type: [String], default: [] },
   workshops: { type: [String], default: [] },
   awards: { type: [String], default: [] },
-  createdBy: { type: String, default: null },
-  updatedBy: { type: String, default: null },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   remarks: { type: String, default: null, trim: true },
   verificationStatus: { type: String, enum: ['pending','verified','rejected', null], default: 'pending' },
 });

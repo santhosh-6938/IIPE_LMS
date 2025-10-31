@@ -8,6 +8,7 @@ import StudentAttendanceView from './StudentAttendanceView';
 import StudentTaskCard from './StudentTaskCard';
 import { ArrowLeft, Users, FileText, BookOpen, Calendar, User, CheckSquare, Clock, AlertCircle } from 'lucide-react';
 import { fetchGroupInteractions, postGroupInteraction } from '../../store/slices/taskSlice';
+import { fetchStudentTaskMarks } from '../../store/slices/marksSlice';
 import { format, isAfter, isBefore, addDays } from 'date-fns';
 import axios from 'axios';
 
@@ -162,7 +163,10 @@ const StudentClassroomDetail = () => {
     const run = async () => {
       for (let i = 0; i < ids.length && !cancelled; i += BATCH_SIZE) {
         const batch = ids.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(id => dispatch(fetchMySubmission(id)))).catch(() => {});
+        await Promise.all([
+          ...batch.map(id => dispatch(fetchMySubmission(id))),
+          ...batch.map(id => dispatch(fetchStudentTaskMarks(id)))
+        ]).catch(() => {});
         if (i + BATCH_SIZE < ids.length) {
           await new Promise(r => setTimeout(r, DELAY_MS));
         }
@@ -171,6 +175,13 @@ const StudentClassroomDetail = () => {
     run();
     return () => { cancelled = true; };
   }, [activeTab, dispatch, tasks, classroomId, user?._id]);
+
+  useEffect(() => {
+    // Deep-link handling: if URL ends with /content, switch tab
+    if (typeof window !== 'undefined' && window.location.pathname.endsWith('/content')) {
+      setActiveTab('content');
+    }
+  }, []);
 
   if (!classroom) {
     return (
@@ -499,7 +510,14 @@ const StudentClassroomDetail = () => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.id === 'content') {
+                      navigate(`/student/classroom/${classroomId}/content`);
+                    } else {
+                      navigate(`/student/classroom/${classroomId}`);
+                    }
+                  }}
                   className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'

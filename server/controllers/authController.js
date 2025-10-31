@@ -39,12 +39,8 @@ const register = async (req, res) => {
       }
     }
 
-    // Determine role safely: allow self-signup as student or admin.
-    // Admin self-signup is now allowed without access code requirement.
-    let safeRole = 'student';
-    if (role === 'admin') {
-      safeRole = 'admin';
-    }
+    // Determine role safely: allow self-signup as student only. Admin creation is disabled for public registration.
+    const safeRole = 'student';
 
     // Create user (password will be hashed by User model middleware)
     const userData = {

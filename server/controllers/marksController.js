@@ -322,6 +322,20 @@ const getTaskMarks = async (req, res) => {
   try {
     const { taskId } = req.params;
 
+    // Verify task exists and requester is teacher or co-teacher for this classroom
+    const task = await Task.findById(taskId).populate('classroom');
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    if (task.teacher.toString() !== req.user._id.toString()) {
+      const Classroom = require('../models/Classroom');
+      const classroomDoc = await Classroom.findById(task.classroom._id || task.classroom);
+      const isCoTeacher = classroomDoc && classroomDoc.coTeacherEnabled && classroomDoc.coTeacher && classroomDoc.coTeacher.toString() === req.user._id.toString();
+      if (!isCoTeacher) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
     const taskMarks = await TaskMarks.findOne({ task: taskId })
       .populate('task', 'title')
       .populate('marks.student', 'name email rollNumber');
@@ -401,6 +415,16 @@ const updateTaskMarks = async (req, res) => {
     await taskMarks.save();
     await taskMarks.populate('marks.student', 'name email rollNumber');
 
+    // If deadline has passed and marks exist, mark task as completed
+    try {
+      if (task.deadline && new Date() > new Date(task.deadline) && taskMarks.marks && taskMarks.marks.length > 0) {
+        const TaskModel = require('../models/Task');
+        await TaskModel.updateOne({ _id: task._id }, { $set: { status: 'completed' } });
+      }
+    } catch (e) {
+      console.warn('Failed to mark task completed on draft save:', e?.message);
+    }
+
     res.json(taskMarks);
   } catch (error) {
     console.error('Update task marks error:', error);
@@ -412,6 +436,20 @@ const updateTaskMarks = async (req, res) => {
 const publishTaskMarks = async (req, res) => {
   try {
     const { taskId } = req.params;
+
+    // Verify task exists and requester is teacher or co-teacher for this classroom
+    const task = await Task.findById(taskId).populate('classroom');
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    if (task.teacher.toString() !== req.user._id.toString()) {
+      const Classroom = require('../models/Classroom');
+      const classroomDoc = await Classroom.findById(task.classroom._id || task.classroom);
+      const isCoTeacher = classroomDoc && classroomDoc.coTeacherEnabled && classroomDoc.coTeacher && classroomDoc.coTeacher.toString() === req.user._id.toString();
+      if (!isCoTeacher) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
 
     const taskMarks = await TaskMarks.findOne({ task: taskId });
     if (!taskMarks) {
@@ -427,6 +465,17 @@ const publishTaskMarks = async (req, res) => {
     taskMarks.publishedBy = req.user._id;
 
     await taskMarks.save();
+
+    // If deadline has passed and marks exist, mark task as completed
+    try {
+      const TaskModel = require('../models/Task');
+      const taskDoc = await TaskModel.findById(taskId);
+      if (taskDoc?.deadline && new Date() > new Date(taskDoc.deadline) && taskMarks.marks && taskMarks.marks.length > 0) {
+        await TaskModel.updateOne({ _id: taskId }, { $set: { status: 'completed' } });
+      }
+    } catch (e) {
+      console.warn('Failed to mark task completed on publish:', e?.message);
+    }
 
     // Create notifications for students
     const notifications = taskMarks.marks.map(mark => ({

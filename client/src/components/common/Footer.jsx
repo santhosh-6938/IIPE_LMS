@@ -47,7 +47,7 @@ const Footer = () => {
           {/* Logo - replace with an <img> if available */}
           <div className="flex items-center mb-2 gap-2">
             <img src="/iipe-logo.png" alt="IIPE Logo" className="h-10 w-10 object-contain rounded bg-white dark:bg-slate-800 p-1 shadow" onError={e => e.target.style.display = 'none'} />
-            <span className="font-extrabold text-lg md:text-xl tracking-tight">{instituteInfo.abbr} <span className="font-normal text-xs">LMS</span></span>
+            <span className="font-extrabold text-lg md:text-xl tracking-tight">{instituteInfo.abbr} LMS </span>
           </div>
           <div className="text-sm font-semibold">{instituteInfo.name}</div>
           {instituteInfo.address.map(line => (

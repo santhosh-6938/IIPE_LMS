@@ -57,11 +57,11 @@ export const blockUser = createAsyncThunk(
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_URL}/user-blocking/block/${userId}`, 
         { reason }, 
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to block user');
+      return rejectWithValue(error.response?.data?.message || error.response?.data?.error || 'Failed to block user');
     }
   }
 );
@@ -73,11 +73,11 @@ export const unblockUser = createAsyncThunk(
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_URL}/user-blocking/unblock/${userId}`, 
         {}, 
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to unblock user');
+      return rejectWithValue(error.response?.data?.message || error.response?.data?.error || 'Failed to unblock user');
     }
   }
 );

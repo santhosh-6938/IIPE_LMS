@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { Calendar, Clock, AlertCircle, FileText, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, FileText, CheckCircle, Award } from 'lucide-react';
 import { format, isAfter, differenceInDays } from 'date-fns';
 import { isTaskCompletedForUser } from '../../store/slices/taskSlice';
 
@@ -9,6 +9,9 @@ const StudentTaskCard = ({ task, isOverdue, isDueSoon }) => {
   const navigate = useNavigate();
 
   const currentUserId = useSelector(state => state.auth.user?._id);
+  const studentTaskMarks = useSelector(state => state.marks.studentTaskMarks || {});
+  const myTaskMark = studentTaskMarks[task._id];
+  const myPublishedMark = myTaskMark && myTaskMark.status === 'published' && Array.isArray(myTaskMark.marks) ? myTaskMark.marks[0] : null;
   const daysUntilDue = task.deadline ? differenceInDays(new Date(task.deadline), new Date()) : null;
   const hasSubmitted = isTaskCompletedForUser(task, currentUserId);
 
@@ -57,6 +60,17 @@ const StudentTaskCard = ({ task, isOverdue, isDueSoon }) => {
           </div>
           <p className="text-gray-600 text-sm line-clamp-2">{task.description}</p>
         </div>
+        {myPublishedMark && (
+          <div className="ml-4 text-right">
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <Award className="w-3 h-3 mr-1" />
+              {myPublishedMark.marks}/{myTaskMark?.maxMarks || 100}
+            </div>
+            <div className="text-[11px] text-gray-500 mt-1">
+              Graded {new Date(myPublishedMark.gradedAt).toLocaleDateString()}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between text-sm text-gray-500">
