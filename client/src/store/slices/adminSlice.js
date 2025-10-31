@@ -4,10 +4,10 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 export const createTeacher = createAsyncThunk(
   'admin/createTeacher',
-  async ({ name, email, password }, { rejectWithValue }) => {
+  async ({ name, email, password, employeeId }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_URL}/admin/users/teacher`, { name, email, password }, {
+      const response = await axios.post(`${API_URL}/admin/users/teacher`, { name, email, password, employeeId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -271,6 +271,7 @@ const adminSlice = createSlice({
             name: action.payload.teacher?.name || action.payload.user?.name,
             email: action.payload.teacher?.email || action.payload.user?.email,
             role: action.payload.teacher?.role || action.payload.user?.role || 'teacher',
+            employeeId: action.payload.teacher?.employeeId,
             createdAt: new Date().toISOString()
           });
         }

@@ -20,18 +20,18 @@ const BulkImportModal = ({ isOpen, onClose, classroomId, onSuccess }) => {
         'application/octet-stream',
         'text/csv'
       ];
-      
-      const isValidType = validTypes.includes(selectedFile.type) || 
-                         selectedFile.name.endsWith('.xlsx') || 
-                         selectedFile.name.endsWith('.xls') ||
-                         selectedFile.name.endsWith('.csv');
-      
+
+      const isValidType = validTypes.includes(selectedFile.type) ||
+        selectedFile.name.endsWith('.xlsx') ||
+        selectedFile.name.endsWith('.xls') ||
+        selectedFile.name.endsWith('.csv');
+
       if (!isValidType) {
         setError('Please select a valid Excel file (.xlsx, .xls) or CSV file (.csv)');
         setFile(null);
         return;
       }
-      
+
       setFile(selectedFile);
       setError(null);
     }
@@ -102,6 +102,18 @@ const BulkImportModal = ({ isOpen, onClose, classroomId, onSuccess }) => {
   };
 
   if (!isOpen) return null;
+
+  // Add overlay loader before main return statement
+  if (isUploading && !uploadResults && !error) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg flex flex-col items-center px-8 py-8">
+          <svg className="animate-spin mb-4" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#2563eb" strokeWidth="4" fill="none" opacity="0.4" /><path fill="#2563eb" d="M12 2a10 10 0 0 1 10 10h-4a6 6 0 0 0-6-6V2z" /></svg>
+          <span className="text-lg font-medium text-blue-700 text-center">Checking file, uploading the students data to the classroom</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

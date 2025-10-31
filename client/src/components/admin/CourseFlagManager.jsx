@@ -1,23 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { Flag, CheckCircle, XCircle, Search, Filter } from 'lucide-react';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
+
+// helper to get uniq/distinct (case insensitive)
+function uniq(arr) {
+  return [...new Set(arr.filter(Boolean).map(b=>b.trim()))];
+}
+
+function Modal({ open, onClose, children }) {
+  if (!open) return null;
+  return (
+    <div className="fixed z-40 inset-0 bg-black bg-opacity-40 flex items-center justify-center" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full relative"
+        onClick={e => { e.stopPropagation(); }}
+      >
+        <button className="absolute right-4 top-3 text-gray-500 hover:text-black text-2xl font-bold" onClick={onClose} aria-label="Close modal">×</button>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 const CourseFlagManager = () => {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+  const { user } = useSelector(state => state.auth);
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [filters, setFilters] = useState({
-    program: '',
-    branch: '',
-    semester: '',
-    isAvailableForNextSemester: ''
-  });
+  const [filters, setFilters] = useState({ program: '', branch: '', semester: '', isAvailableForNextSemester: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourses, setSelectedCourses] = useState([]);
   const [bulkAction, setBulkAction] = useState('');
   const [bulkReason, setBulkReason] = useState('');
+  // MODAL course form state
+  const defaultForm = { courseCode: '', subject: '', program: '', branch: '', semester: '', credits: '' };
+  const [newCourse, setNewCourse] = useState(defaultForm);
+  const [formErrors, setFormErrors] = useState({});
+  const [modalError, setModalError] = useState('');
+  const [modalSuccess, setModalSuccess] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [allCourses, setAllCourses] = useState([]);
 
   useEffect(() => {
     fetchCourses();
@@ -107,6 +133,90 @@ const CourseFlagManager = () => {
     }
   };
 
+  // Validation helpers (should match backend)
+  const validateForm = () => {
+    const errs = {};
+    if (!/^[0-9]{4}$/.test(newCourse.courseCode)) errs.courseCode = "Must be exactly 4 digits";
+    if (!newCourse.subject?.trim()) errs.subject = "Required";
+    if (!['B.Tech', 'M.Tech', 'M.Sc'].includes(newCourse.program)) errs.program = "Choose program";
+    if (!newCourse.branch?.trim()) errs.branch = "Required";
+    if (!['Autumn', 'Spring', 'Both'].includes(newCourse.semester)) errs.semester = "Choose";
+    if (!String(newCourse.credits).trim() || isNaN(Number(newCourse.credits)) || Number(newCourse.credits) < 1 || Number(newCourse.credits) > 10) errs.credits = "1-10";
+    return errs;
+  };
+
+  const handleCourseChange = e => {
+    const { name, value } = e.target;
+    setNewCourse(prev => ({ ...prev, [name]: value }));
+    setFormErrors(prev => ({ ...prev, [name]: '' }));
+    setModalError('');
+  };
+
+  const fetchCourseOptions = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/courses`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      setAllCourses(res.data.courses || []);
+    } catch(e) {
+      setAllCourses([]);
+    }
+  };
+
+  const openAddModal = () => {
+    setNewCourse(defaultForm);
+    setFormErrors({});
+    setModalError('');
+    setModalSuccess('');
+    fetchCourseOptions();
+    setAddModalOpen(true);
+  };
+  const closeAddModal = () => {
+    if (submitting) return;
+    setAddModalOpen(false);
+    setNewCourse(defaultForm);
+    setFormErrors({});
+    setModalError('');
+    setModalSuccess('');
+  };
+
+  const handleCourseSubmit = async (e) => {
+    e.preventDefault();
+    setModalError('');
+    setModalSuccess('');
+    const errs = validateForm();
+    if (Object.keys(errs).length) {
+      setFormErrors(errs);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/courses`, {
+        ...newCourse,
+        credits: Number(newCourse.credits)
+      }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      setModalSuccess(response.data.message || 'Course created successfully');
+      setModalError('');
+      setNewCourse(defaultForm);
+      setFormErrors({});
+      fetchCourses();
+      // Close modal after short delay to show success
+      setTimeout(() => {
+        setModalSuccess('');
+        setAddModalOpen(false);
+      }, 1000);
+    } catch (err) {
+      setModalError((err.response && (err.response.data?.errors?.join('; ') || err.response.data?.message)) || 'Failed to add course');
+      setModalSuccess('');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredCourses = courses.filter(course => {
     const matchesSearch = searchTerm === '' || 
       course.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -131,6 +241,17 @@ const CourseFlagManager = () => {
     }
   };
 
+  // Gather possible values for stepwise selects
+  const allSemesters = uniq(allCourses.map(c => c.semester));
+  // Filter branches to those with the currently selected semester or all if not yet selected
+  const branchOptions = uniq(allCourses.filter(c => !newCourse.semester || c.semester === newCourse.semester).map(c => c.branch));
+  // Programs for current branch (if selected)
+  const programOptions = uniq(
+    allCourses.filter(c =>
+      (!newCourse.semester || c.semester === newCourse.semester) &&
+      (!newCourse.branch || c.branch === newCourse.branch)).map(c => c.program)
+  );
+
   return (
     <div className="p-6 bg-white rounded-lg shadow-sm">
       <div className="flex items-center justify-between mb-6">
@@ -140,10 +261,81 @@ const CourseFlagManager = () => {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Course Flag Manager</h2>
-            <p className="text-sm text-gray-600">Manage course availability for next semester</p>
+            <p className="text-sm text-gray-600">Add new courses and manage availability/flags. Only admins can create courses.</p>
           </div>
         </div>
+        {user && user.role === 'admin' && (
+          <button onClick={openAddModal} className="ml-4 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">+ Add Course</button>
+        )}
       </div>
+      {/* --- ADD COURSE MODAL --- */}
+      <Modal open={addModalOpen} onClose={closeAddModal}>
+        <h2 className="text-xl mb-4 font-semibold text-gray-900">Add New Course</h2>
+        <form onSubmit={handleCourseSubmit} className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs mb-1 font-medium text-gray-700">Semester*</label>
+              <select name="semester" value={newCourse.semester} onChange={handleCourseChange} className="w-full border px-3 py-2 rounded-lg" disabled={submitting}>
+                <option value="">Select</option>
+                {['Autumn','Spring','Both'].map(s => <option key={s} value={s}>{s}</option>)}
+                {/* admin may want a new value */}
+              </select>
+              {formErrors.semester && <span className="text-xs text-red-600">{formErrors.semester}</span>}
+            </div>
+            <div>
+              <label className="block text-xs mb-1 font-medium text-gray-700">Branch* (from courses or enter new)</label>
+              <input
+                name="branch"
+                value={newCourse.branch}
+                onChange={e=>{
+                  handleCourseChange(e);
+                }}
+                list="branchOptions"
+                className="w-full border px-3 py-2 rounded-lg" disabled={!newCourse.semester || submitting} autoComplete="off"
+              />
+              <datalist id="branchOptions">
+                {branchOptions.map((b,idx)=>(<option key={idx} value={b} />))}
+              </datalist>
+              {formErrors.branch && <span className="text-xs text-red-600">{formErrors.branch}</span>}
+            </div>
+            <div>
+              <label className="block text-xs mb-1 font-medium text-gray-700">Program* (from courses or enter new)</label>
+              <input
+                name="program"
+                value={newCourse.program}
+                onChange={handleCourseChange}
+                list="programOptions"
+                className="w-full border px-3 py-2 rounded-lg" disabled={!newCourse.branch || submitting} autoComplete="off"
+              />
+              <datalist id="programOptions">
+                {programOptions.map((p,idx)=>(<option key={idx} value={p} />))}
+              </datalist>
+              {formErrors.program && <span className="text-xs text-red-600">{formErrors.program}</span>}
+            </div>
+            <div>
+              <label className="block text-xs mb-1 font-medium text-gray-700">Course Code*</label>
+              <input name="courseCode" value={newCourse.courseCode} onChange={handleCourseChange} className="w-full border px-3 py-2 rounded-lg" maxLength={4} disabled={!newCourse.program || submitting} />
+              {formErrors.courseCode && <span className="text-xs text-red-600">{formErrors.courseCode}</span>}
+            </div>
+            <div>
+              <label className="block text-xs mb-1 font-medium text-gray-700">Subject*</label>
+              <input name="subject" value={newCourse.subject} onChange={handleCourseChange} className="w-full border px-3 py-2 rounded-lg" disabled={!newCourse.courseCode || submitting} />
+              {formErrors.subject && <span className="text-xs text-red-600">{formErrors.subject}</span>}
+            </div>
+            <div>
+              <label className="block text-xs mb-1 font-medium text-gray-700">Credits (1-10)*</label>
+              <input name="credits" value={newCourse.credits} onChange={handleCourseChange} className="w-full border px-3 py-2 rounded-lg" type="number" min="1" max="10" disabled={!newCourse.subject || submitting} />
+              {formErrors.credits && <span className="text-xs text-red-600">{formErrors.credits}</span>}
+            </div>
+          </div>
+          {modalError && <div className="text-red-700 font-medium text-sm">{modalError}</div>}
+          {modalSuccess && <div className="text-green-700 font-medium text-sm">{modalSuccess}</div>}
+          <div className="flex gap-2 mt-2 justify-end">
+            <button type="button" onClick={closeAddModal} className="px-4 py-2 border rounded-lg" disabled={submitting}>Cancel</button>
+            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 min-w-[110px] flex items-center justify-center" disabled={submitting}>{submitting ? <span className="inline-block animate-spin mr-1 h-5 w-5 border-2 border-white border-t-blue-600 rounded-full"></span> : null} Add Course</button>
+          </div>
+        </form>
+      </Modal>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">

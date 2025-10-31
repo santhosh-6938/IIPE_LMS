@@ -18,7 +18,22 @@ function generateTempPassword() {
 // Create teacher
 const createTeacher = async (req, res) => {
   try {
-    const { name, email, password, rollNumber } = req.body;
+    const { name, email, password, rollNumber, employeeId } = req.body;
+
+    // Validate employeeId presence and format
+    if (!employeeId || typeof employeeId !== 'string' || !employeeId.trim()) {
+      return res.status(400).json({ message: 'Employee ID is required' });
+    }
+    const cleanEmployeeId = employeeId.trim();
+    if (!/^[A-Za-z0-9_-]+$/.test(cleanEmployeeId)) {
+      return res.status(400).json({ message: 'Employee ID must be alphanumeric and may include - or _' });
+    }
+
+    // Check employeeId uniqueness
+    const existingByEmp = await User.findOne({ employeeId: cleanEmployeeId });
+    if (existingByEmp) {
+      return res.status(400).json({ message: 'Employee ID already exists' });
+    }
 
     // Check if user already exists by email
     const existingUserByEmail = await User.findOne({ email });
@@ -43,6 +58,7 @@ const createTeacher = async (req, res) => {
       email,
       password: tempPassword,
       role: 'teacher',
+      employeeId: cleanEmployeeId,
       createdBy: req.user._id,
       updatedBy: req.user._id,
       isFirstLogin: true
@@ -69,6 +85,7 @@ const createTeacher = async (req, res) => {
         id: teacher._id,
         name: teacher.name,
         email: teacher.email,
+        employeeId: teacher.employeeId,
         rollNumber: teacher.rollNumber,
         role: teacher.role,
         isFirstLogin: teacher.isFirstLogin
@@ -77,7 +94,7 @@ const createTeacher = async (req, res) => {
     });
   } catch (error) {
     console.error('Create teacher error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 

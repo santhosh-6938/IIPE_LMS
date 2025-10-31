@@ -15,6 +15,7 @@ const UserManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateTeacher, setShowCreateTeacher] = useState(false);
   const [newTeacher, setNewTeacher] = useState({ name: '', email: '', password: '' });
+  const [employeeIdError, setEmployeeIdError] = useState('');
   const [userToDelete, setUserToDelete] = useState(null);
   const [emailConfigured, setEmailConfigured] = useState(true);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -64,7 +65,8 @@ const UserManagement = () => {
 
   const openCreateTeacher = () => {
     setShowCreateTeacher(true);
-    setNewTeacher({ name: '', email: '', password: generateTempPassword() });
+    setEmployeeIdError('');
+    setNewTeacher({ name: '', email: '', password: generateTempPassword(), employeeId: '' });
   };
 
   const copyPassword = async () => {
@@ -502,10 +504,16 @@ const UserManagement = () => {
               <h3 className="text-lg font-medium text-gray-900 mb-4">Create Teacher</h3>
               <form onSubmit={async (e) => {
                 e.preventDefault();
+                // Validate employeeId
+                if (!newTeacher.employeeId || !/^[A-Za-z0-9_-]+$/.test(newTeacher.employeeId)) {
+                  setEmployeeIdError('Employee ID is required and must be alphanumeric (may include - or _)');
+                  return;
+                }
                 try {
                   const resp = await dispatch(createTeacher(newTeacher)).unwrap();
                   setShowCreateTeacher(false);
                   setNewTeacher({ name: '', email: '', password: '' });
+                  setEmployeeIdError('');
                   loadUsers();
                   toast.success(resp?.message || 'Teacher created and credentials emailed');
                 } catch (err) {
@@ -519,6 +527,12 @@ const UserManagement = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Email</label>
                   <input type="email" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" value={newTeacher.email} onChange={e => setNewTeacher({ ...newTeacher, email: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Employee ID</label>
+                  <input className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" value={newTeacher.employeeId || ''} onChange={e => { setNewTeacher({ ...newTeacher, employeeId: e.target.value }); setEmployeeIdError(''); }} required />
+                  {employeeIdError && <p className="text-xs text-red-600 mt-1">{employeeIdError}</p>}
+                  <p className="text-xs text-gray-500 mt-1">Alphanumeric; dashes and underscores allowed (e.g., EMP_2025-07)</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Temporary Password</label>

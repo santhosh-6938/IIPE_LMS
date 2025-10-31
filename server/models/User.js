@@ -43,6 +43,19 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  employeeId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // allow null/undefined for non-teachers
+        return /^[A-Za-z0-9_-]+$/.test(v);
+      },
+      message: 'Employee ID must be alphanumeric and may include - or _'
+    }
+  },
   // Profile fields for students
   phone: {
     type: String,
@@ -165,7 +178,63 @@ const userSchema = new mongoose.Schema({
   passwordChangeCount: {
     type: Number,
     default: 0
-  }
+  },
+  // Teacher profile fields
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other', 'prefer_not_to_say'],
+    default: null
+  },
+  alternateEmail: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    default: null
+  },
+  nationality: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  languagesKnown: {
+    type: [String],
+    default: []
+  },
+  currentAddress: {
+    line1: { type: String, default: null, trim: true },
+    line2: { type: String, default: null, trim: true },
+    city: { type: String, default: null, trim: true },
+    state: { type: String, default: null, trim: true },
+    postalCode: { type: String, default: null, trim: true },
+    country: { type: String, default: null, trim: true }
+  },
+  permanentAddress: {
+    line1: { type: String, default: null, trim: true },
+    line2: { type: String, default: null, trim: true },
+    city: { type: String, default: null, trim: true },
+    state: { type: String, default: null, trim: true },
+    postalCode: { type: String, default: null, trim: true },
+    country: { type: String, default: null, trim: true }
+  },
+  designation: { type: String, default: null, trim: true },
+  programsTaught: { type: [String], default: [] },
+  coursesAssigned: { type: [String], default: [] },
+  specialization: { type: String, default: null, trim: true },
+  experienceYears: { type: Number, default: null, min: 0, max: 60 },
+  dateOfJoining: { type: Date, default: null },
+  employmentType: { type: String, enum: ['Full-time','Part-time','Research Scholar', null], default: null },
+  highestQualification: { type: String, default: null, trim: true },
+  degreesCertifications: { type: [String], default: [] },
+  institutionsAttended: { type: [String], default: [] },
+  yearOfGraduation: { type: Number, default: null },
+  researchInterests: { type: [String], default: [] },
+  publications: { type: [String], default: [] },
+  workshops: { type: [String], default: [] },
+  awards: { type: [String], default: [] },
+  createdBy: { type: String, default: null },
+  updatedBy: { type: String, default: null },
+  remarks: { type: String, default: null, trim: true },
+  verificationStatus: { type: String, enum: ['pending','verified','rejected', null], default: 'pending' },
 });
 
 // Hash password before saving

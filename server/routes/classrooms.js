@@ -659,6 +659,30 @@ router.post('/:classroomId/students/bulk-import', auth, authorize('teacher'), (r
         });
       }
 
+      // Validate ALL data for errors before processing rows
+      let validationErrors = [];
+      let rowObjs = rows.map((row, i) => {
+        const name = row[nameIndex] ? row[nameIndex].toString().trim() : '';
+        const email = row[emailIndex] ? row[emailIndex].toString().trim() : '';
+        const rollNumber = row[rollNumberIndex] ? row[rollNumberIndex].toString().trim().toUpperCase() : '';
+        const rowNumber = i + 2;
+        // Field checks
+        if (!name || !email || !rollNumber) {
+          validationErrors.push(`Row ${rowNumber}: Name, email, and roll number are required`);
+        } else {
+          // Improved email check
+          const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+          if (!emailRegex.test(email)) {
+            validationErrors.push(`Row ${rowNumber}: Invalid email format`);
+          }
+        }
+        return {name, email, rollNumber};
+      });
+
+      if (validationErrors.length > 0) {
+        return res.status(400).json({ message: 'Validation errors found in uploaded file.', errors: validationErrors });
+      }
+
       // Get column indices already computed above
 
       const results = {

@@ -1,5 +1,5 @@
 const express = require('express');
-const { auth } = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 const {
   createTeacher,
   getAllUsers,
@@ -17,7 +17,7 @@ const {
 const router = express.Router();
 
 // Create teacher
-router.post('/users/teacher', auth, createTeacher);
+router.post('/users/teacher', auth, authorize('admin'), createTeacher);
 
 // Get all users
 router.get('/users', auth, getAllUsers);

@@ -135,36 +135,81 @@ router.put('/update', auth, upload.single('profilePhoto'), async (req, res) => {
     const userId = req.user._id;
     const updateData = { ...req.body };
 
+    // Do not allow changing immutable fields via this route
+    delete updateData.email;
+    delete updateData.employeeId;
+    delete updateData.role;
+
     // Handle profile photo upload
     if (req.file) {
       updateData.profilePhoto = `uploads/profiles/${req.file.filename}`;
     }
 
-    // Handle address object
-    if (updateData.city || updateData.state) {
-      updateData.address = {
-        city: updateData.city || null,
-        state: updateData.state || null
-      };
-      delete updateData.city;
-      delete updateData.state;
+    // Normalize nested addresses if provided as flat fields or JSON strings
+    function parseMaybeJson(value) {
+      if (typeof value === 'string') {
+        try { return JSON.parse(value); } catch { return value; }
+      }
+      return value;
     }
 
-    // Handle date of birth
-    if (updateData.dateOfBirth) {
-      updateData.dateOfBirth = new Date(updateData.dateOfBirth);
+    if (updateData.currentAddress) {
+      updateData.currentAddress = parseMaybeJson(updateData.currentAddress);
+    } else {
+      const keys = ['line1','line2','city','state','postalCode','country'];
+      const currentAddr = {};
+      let hasAny = false;
+      keys.forEach(k => {
+        const v = updateData[`currentAddress.${k}`];
+        if (v !== undefined) { currentAddr[k] = v; hasAny = true; delete updateData[`currentAddress.${k}`]; }
+      });
+      if (hasAny) updateData.currentAddress = currentAddr;
+    }
+    if (updateData.permanentAddress) {
+      updateData.permanentAddress = parseMaybeJson(updateData.permanentAddress);
+    } else {
+      const keys = ['line1','line2','city','state','postalCode','country'];
+      const permAddr = {};
+      let hasAny = false;
+      keys.forEach(k => {
+        const v = updateData[`permanentAddress.${k}`];
+        if (v !== undefined) { permAddr[k] = v; hasAny = true; delete updateData[`permanentAddress.${k}`]; }
+      });
+      if (hasAny) updateData.permanentAddress = permAddr;
     }
 
-    // Remove empty strings and convert to null
+    // Arrays: allow comma-separated or JSON array strings
+    const arrayFields = ['languagesKnown','programsTaught','coursesAssigned','degreesCertifications','institutionsAttended','researchInterests','publications','workshops','awards'];
+    arrayFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        const v = updateData[field];
+        if (Array.isArray(v)) {
+          // ok
+        } else if (typeof v === 'string') {
+          const parsed = parseMaybeJson(v);
+          if (Array.isArray(parsed)) updateData[field] = parsed;
+          else updateData[field] = v.split(',').map(s => s.trim()).filter(Boolean);
+        } else {
+          updateData[field] = [];
+        }
+      }
+    });
+
+    // Handle date fields
+    if (updateData.dateOfBirth) updateData.dateOfBirth = new Date(updateData.dateOfBirth);
+    if (updateData.dateOfJoining) updateData.dateOfJoining = new Date(updateData.dateOfJoining);
+
+    // Remove empty strings and convert to null (except arrays/objects)
     Object.keys(updateData).forEach(key => {
-      if (updateData[key] === '' || updateData[key] === undefined) {
+      const val = updateData[key];
+      if (val === '' || val === undefined) {
         updateData[key] = null;
       }
     });
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      updateData,
+      { ...updateData, updatedBy: String(userId) },
       { new: true, runValidators: true }
     ).select('-password');
 
@@ -172,13 +217,14 @@ router.put('/update', auth, upload.single('profilePhoto'), async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Calculate updated profile completion
-    const profileFields = ['phone', 'profilePhoto', 'course', 'year', 'semester', 'department', 'dateOfBirth', 'address', 'bio'];
+    // Calculate updated profile completion (teacher-focused fields)
+    const profileFields = ['phone', 'profilePhoto', 'gender', 'dateOfBirth', 'currentAddress', 'permanentAddress', 'nationality', 'languagesKnown', 'designation', 'department', 'programsTaught', 'specialization', 'experienceYears', 'dateOfJoining', 'highestQualification'];
     const completedFields = profileFields.filter(field => {
-      if (field === 'address') {
-        return updatedUser.address && updatedUser.address.city && updatedUser.address.state;
-      }
-      return updatedUser[field] && updatedUser[field] !== null && updatedUser[field] !== '';
+      const u = updatedUser;
+      const v = u[field];
+      if (Array.isArray(v)) return v.length > 0;
+      if (v && typeof v === 'object') return Object.values(v).some(x => x);
+      return v !== null && v !== '' && v !== undefined;
     }).length;
     const profileCompletion = Math.round((completedFields / profileFields.length) * 100);
 
