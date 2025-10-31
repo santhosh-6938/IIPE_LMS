@@ -61,15 +61,19 @@ const router = express.Router();
 
 // Helper function to check if user has teacher access to classroom
 const hasTeacherAccess = (classroom, userId) => {
-  return classroom.teacher.toString() === userId.toString() ||
-         (classroom.coTeacherEnabled && 
-          classroom.coTeacher && 
-          classroom.coTeacher.toString() === userId.toString());
+  const teacherId = classroom.teacher && classroom.teacher._id ? classroom.teacher._id : classroom.teacher;
+  const coTeacherId = classroom.coTeacher && classroom.coTeacher._id ? classroom.coTeacher._id : classroom.coTeacher;
+  const userIdStr = userId && userId.toString ? userId.toString() : String(userId);
+  const teacherMatch = teacherId && teacherId.toString && teacherId.toString() === userIdStr;
+  const coTeacherMatch = classroom.coTeacherEnabled && coTeacherId && coTeacherId.toString && coTeacherId.toString() === userIdStr;
+  return !!(teacherMatch || coTeacherMatch);
 };
 
 // Helper function to check if user is main teacher (NOT co-teacher)
 const isMainTeacher = (classroom, userId) => {
-  return classroom.teacher.toString() === userId.toString();
+  const teacherId = classroom.teacher && classroom.teacher._id ? classroom.teacher._id : classroom.teacher;
+  const userIdStr = userId && userId.toString ? userId.toString() : String(userId);
+  return teacherId && teacherId.toString && teacherId.toString() === userIdStr;
 };
 
 // Helper function to log classroom activity with teacher role identification
@@ -443,6 +447,10 @@ router.post('/:classroomId/students', auth, authorize('teacher'), async (req, re
     const { classroomId } = req.params;
     const { studentIds } = req.body;
 
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ message: 'Please provide at least one student ID' });
+    }
+
     const classroom = await Classroom.findById(classroomId)
       .populate('teacher', 'name email _id')
       .populate('students', 'name email rollNumber createdAt');
@@ -461,6 +469,10 @@ router.post('/:classroomId/students', auth, authorize('teacher'), async (req, re
       _id: { $in: studentIds },
       role: 'student'
     });
+
+    if (!studentsToAdd || studentsToAdd.length === 0) {
+      return res.status(400).json({ message: 'No valid students found for provided IDs' });
+    }
 
     // Add students who are not already in the classroom
     const newStudents = [];
